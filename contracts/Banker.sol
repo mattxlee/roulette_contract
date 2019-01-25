@@ -1,6 +1,8 @@
 pragma solidity ^0.4.11;
 
 contract Banker {
+    uint256 maxBetWei;
+
     address public owner;
     address public banker;
 
@@ -36,6 +38,8 @@ contract Banker {
     constructor() public {
         owner = msg.sender;
 
+        maxBetWei = 1 ether;
+
         // Initialize odds.
         odds[1] = 35;
         odds[2] = 17;
@@ -45,6 +49,10 @@ contract Banker {
         odds[6] = 5;
         odds[12] = 2;
         odds[18] = 1;
+    }
+
+    function setMaxBetWei(uint256 numOfWei) public ownerOnly {
+        maxBetWei = numOfWei;
     }
 
     function deposit() public payable {}
@@ -327,7 +335,9 @@ contract Banker {
         // Throw if there are not enough wei are provided by customer.
         uint32 betAmount = calcBetAmount(betData);
         uint256 betWei = convertAmountToWei(betAmount);
-        require(msg.value >= betWei, "There are not enough wei provided by customer.");
+
+        require(msg.value >= betWei, "There are not enough wei are provided by customer.");
+        require(betWei <= maxBetWei, "Exceed the maximum.");
 
         // Check the signature.
         bytes memory prefix = "\x19Ethereum Signed Message:\n32";
