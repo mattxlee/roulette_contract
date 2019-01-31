@@ -38,7 +38,7 @@ contract Banker {
     constructor() public {
         owner = msg.sender;
 
-        maxBetWei = 1 ether;
+        maxBetWei = 1 ether / 10;
 
         // Initialize odds.
         odds[1] = 35;
