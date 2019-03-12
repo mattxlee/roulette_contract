@@ -1,13 +1,13 @@
-pragma solidity ^0.4.11;
+pragma solidity ^0.5.0;
 
 contract Banker {
     uint256 maxBetWei;
 
-    address public owner;
+    address payable public owner;
     address public banker;
 
     struct Bet {
-        address player;
+        address payable player;
         uint256 transferredAmount; // For refund.
         bytes32 betData;
         uint256 placedOnBlock;
@@ -372,7 +372,7 @@ contract Banker {
         Bet storage bet = bets[magicNumber];
 
         // Save to local variables.
-        address betPlayer = bet.player;
+        address payable betPlayer = bet.player;
         bytes32 betbetData = bet.betData;
         uint256 betPlacedOnBlock = bet.placedOnBlock;
         uint256 betLastRevealBlock = bet.lastRevealBlock;
@@ -417,7 +417,7 @@ contract Banker {
     function refundBet(uint256 magicNumber) public {
         Bet storage bet = bets[magicNumber];
 
-        address player = bet.player;
+        address payable player = bet.player;
         uint256 transferredAmount = bet.transferredAmount;
         uint256 lastRevealBlock = bet.lastRevealBlock;
 
