@@ -14,4 +14,9 @@ contract("Banker", async accounts => {
             "Only owner can call this function."
         );
     });
+
+    it("Setup banker address.", async () => {
+        const banker = await Banker.deployed();
+        await truffleAssert.passes(banker.setBanker(bankerAddr, { from: ownerAddr }));
+    });
 });
