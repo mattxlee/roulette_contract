@@ -60,4 +60,36 @@ contract("Banker", async accounts => {
         const val = await banker.maxBetWei.call();
         assert.isTrue(val.eq(eth1), "Max bet is not 1 eth!");
     });
+
+    it("The eth amount of an initialized contract should be zero.", async () => {
+        const banker = await Banker.deployed();
+        const balanceStr = await web3.eth.getBalance(banker.address);
+        const balance = web3.utils.toBN(balanceStr);
+        assert.isTrue(balance.eq(bignum(0)), "The balance of an initialized contract should be zero!");
+    });
+
+    it("Deposit 10 eth to contract with player account.", async () => {
+        const banker = await Banker.deployed();
+        await truffleAssert.passes(banker.deposit({ from: playerAddr, value: eth1.mul(bignum(10)) }));
+    });
+
+    it("The eth amount of the contract should be 10 eth.", async () => {
+        const banker = await Banker.deployed();
+        const balanceStr = await web3.eth.getBalance(banker.address);
+        const balance = web3.utils.toBN(balanceStr);
+        assert.isTrue(balance.eq(eth1.mul(bignum(10))), "The balance is incorrect!");
+    });
+
+    it("Withdraw eth by a player account is not allowed.", async () => {
+        const banker = await Banker.deployed();
+        await truffleAssert.reverts(
+            banker.withdrawToOwner(eth1, { from: playerAddr }),
+            "Only owner can call this function"
+        );
+    });
+
+    it("Withdraw 1 eth to owner account.", async () => {
+        const banker = await Banker.deployed();
+        await truffleAssert.passes(banker.withdrawToOwner(eth1, { from: ownerAddr }));
+    });
 });
