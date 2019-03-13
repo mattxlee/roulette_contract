@@ -8,10 +8,9 @@
 //
 
 pragma solidity ^0.5.0;
-
 import "./SafeMath.sol";
 
-/// Main contract.
+/// Main contract
 contract Banker {
     using SafeMath for uint256;
 
@@ -28,6 +27,7 @@ contract Banker {
     enum RevealFailStatus { InsufficientContractBalance }
 
     uint256 constant private eth1 = 1e18;
+    uint256 constant private rou1 = 1e16;
 
     // Owner will be able to withdraw and setup a new banker account
     address payable public owner;
@@ -79,6 +79,9 @@ contract Banker {
         _;
     }
 
+    /**
+     * @dev Constructor will initialize owner, maxBetWei and odds
+     */
     constructor() public {
         owner = msg.sender;
 
@@ -95,12 +98,23 @@ contract Banker {
         odds[18] = 1;
     }
 
+    /**
+     * @dev Assign a new banker account to contract
+     * @param _newBanker Address of the new banker account
+     */
     function setBanker(address _newBanker) public ownerOnly {
         banker = _newBanker;
     }
 
+    /**
+     * @dev Deposit eth to contract
+     */
     function deposit() public payable {}
 
+    /**
+     * @dev Withdraw eth to owner account
+     * @param _wei The amount of eth to withdraw
+     */
     function withdrawToOwner(uint256 _wei) public ownerOnly {
         require(
             address(this).balance >= _wei,
@@ -110,369 +124,407 @@ contract Banker {
         owner.transfer(_wei);
     }
 
+    /**
+     * @dev Set the value of max bet wei
+     * @param _numOfWei How many you want to set as the max bet wei
+     */
     function setMaxBetWei(uint256 _numOfWei) public ownerOnly {
         require(_numOfWei <= eth1.mul(10) && _numOfWei >= 1e18 / 100, "The amount of max bet is out of range!");
         maxBetWei = _numOfWei;
     }
 
-    function convertAmountToWei(uint32 amount) private pure returns (uint256) {
-        return uint256(amount) * (1 finney * 10);
+    /**
+     * @dev This function will convert the amount of chips to eth value
+     * @param _amount The amount of chips
+     * @return The value of eth
+     */
+    function convertAmountToWei(uint256 _amount) private pure returns (uint256) {
+        return _amount.mul(rou1.mul(10));
     }
 
-    function calcBetAmount(bytes32 betData) private pure returns (uint32) {
-        uint8 numOfBets = uint8(betData[0]);
-        require(numOfBets > 0 && numOfBets <= 15, "Invalid number value of bets.");
+    /**
+     * @dev Calculate how many amount of chips from bet details
+     * @param _betData The data of bet details
+     * @return Total amount value are calculated
+     */
+    function calcBetAmount(bytes32 _betData) private pure returns (uint256) {
+        uint256 _numOfBets = uint8(_betData[0]);
+        require(_numOfBets > 0 && _numOfBets <= 15, "Invalid number value of bets.");
 
-        uint8 p = 1;
-        uint32 betAmount = 0;
+        uint256 _p = 1;
+        uint256 _betAmount = 0;
 
-        for (uint8 i = 0; i < numOfBets; ++i) {
-            uint8 amount = uint8(betData[p++]);
+        for (uint256 _dataIndex = 0; _dataIndex < _numOfBets; ++_dataIndex) {
+            uint256 _amount = uint8(_betData[_p++]);
             require(
-                amount == 100 || amount == 50 || amount == 20 || amount == 10 ||
-                    amount == 5 || amount == 2 || amount == 1,
+                _amount == 100 || _amount == 50 || _amount == 20 || _amount == 10 ||
+                    _amount == 5 || _amount == 2 || _amount == 1,
                 "Invalid bet amount."
             );
 
-            betAmount += amount;
+            _betAmount += _amount;
 
             // Skip numbers.
-            uint8 numOfNumsOrIndex = uint8(betData[p++]);
-            if (numOfNumsOrIndex <= 4) {
-                p += numOfNumsOrIndex;
+            uint256 _numOfNumsOrIndex = uint8(_betData[_p++]);
+            if (_numOfNumsOrIndex <= 4) {
+                _p += _numOfNumsOrIndex;
             } else {
-                require(numOfNumsOrIndex >= 129 && numOfNumsOrIndex <= 152, "Invalid bet index.");
+                require(_numOfNumsOrIndex >= 129 && _numOfNumsOrIndex <= 152, "Invalid bet index.");
             }
 
-            // Note: When numOfNumsOrIndex > 4 (Actually it should be larger than 128),
+            // Note: When _numOfNumsOrIndex > 4 (Actually it should be larger than 128),
             //       there is no number follows. So we do not skip any byte in this case.
         }
 
-        return betAmount;
+        return _betAmount;
     }
 
-    function calcWinAmountOnNumber(bytes32 betData, uint8 number) private view returns (uint32) {
-        uint8 numOfBets = uint8(betData[0]);
-        require(numOfBets <= 15, "Too many bets.");
+    /**
+     * @dev Calculate the amount to win according to the result
+     * @param _betData The bet details
+     * @param _dice The result
+     * @return Amount of chips should win
+     */
+    function calcWinAmountOnNumber(bytes32 _betData, uint256 _dice) private view returns (uint256) {
+        uint8 _numOfBets = uint8(_betData[0]);
+        require(_numOfBets <= 15, "Too many bets.");
 
         // Reading index of betData.
-        uint8 p = 1;
-        uint32 winAmount = 0;
+        uint256 _pData = 1;
+        uint256 _winAmount = 0;
 
         // Loop every bet.
-        for (uint8 i = 0; i < numOfBets; ++i) {
-            require(p < 32, "Out of betData's range.");
+        for (uint256 _betIndex = 0; _betIndex < _numOfBets; ++_betIndex) {
+            require(_pData < 32, "Out of betData's range.");
 
             // Now read the bet amount (in ROU).
-            uint8 amount = uint8(betData[p++]);
+            uint256 _amount = uint8(_betData[_pData++]);
             require(
-                amount == 100 || amount == 50 || amount == 20 || amount == 10 ||
-                    amount == 5 || amount == 2 || amount == 1,
+                _amount == 100 || _amount == 50 || _amount == 20 || _amount == 10 ||
+                    _amount == 5 || _amount == 2 || _amount == 1,
                 "Invalid bet amount."
             );
 
             // The number of numbers to bet.
-            uint8 numOfNumsOrIndex = uint8(betData[p++]);
+            uint256 _numOfNumsOrIndex = uint8(_betData[_pData++]);
 
             // Read and check numbers.
-            if (numOfNumsOrIndex <= 4) {
+            if (_numOfNumsOrIndex <= 4) {
                 // We will read numbers from the following bytes.
-                bool hit = false;
-                for (uint8 j = 0; j < numOfNumsOrIndex; ++j) {
-                    require(p < 32, "Out of betData's range.");
+                bool _hit = false;
+                for (uint256 _numIndex = 0; _numIndex < _numOfNumsOrIndex; ++_numIndex) {
+                    require(_pData < 32, "Out of betData's range.");
 
-                    uint8 thisNumber = uint8(betData[p++]);
-                    require(thisNumber >= 0 && thisNumber <= 37, "Invalid bet number.");
+                    uint256 _number = uint8(_betData[_pData++]);
+                    require(_number >= 0 && _number <= 37, "Invalid bet number.");
 
-                    if (!hit && thisNumber == number) {
-                        hit = true;
-                        // Add win amount.
-                        winAmount += uint32(odds[numOfNumsOrIndex] + 1) * amount;
+                    if (!_hit && _number == _dice) {
+                        _hit = true;
+                        // Increase win amount.
+                        _winAmount = _winAmount.add((odds[_numOfNumsOrIndex] + 1).mul(_amount));
                     }
                 }
             } else {
                 // This is the index from table.
-                require(numOfNumsOrIndex >= 129 && numOfNumsOrIndex <= 152, "Bad bet index.");
+                require(_numOfNumsOrIndex >= 129 && _numOfNumsOrIndex <= 152, "Bad bet index.");
 
-                uint8 numOfNums = 0;
+                uint256 _numOfNums = 0;
 
-                if (numOfNumsOrIndex == 129 && (number >= 1 && number <= 6)) {
-                    numOfNums = 6;
+                if (_numOfNumsOrIndex == 129 && (_dice >= 1 && _dice <= 6)) {
+                    _numOfNums = 6;
                 }
 
-                if (numOfNumsOrIndex == 130 && (number >= 4 && number <= 9)) {
-                    numOfNums = 6;
+                if (_numOfNumsOrIndex == 130 && (_dice >= 4 && _dice <= 9)) {
+                    _numOfNums = 6;
                 }
 
-                if (numOfNumsOrIndex == 131 && (number >= 7 && number <= 12)) {
-                    numOfNums = 6;
+                if (_numOfNumsOrIndex == 131 && (_dice >= 7 && _dice <= 12)) {
+                    _numOfNums = 6;
                 }
 
-                if (numOfNumsOrIndex == 132 && (number >= 10 && number <= 15)) {
-                    numOfNums = 6;
+                if (_numOfNumsOrIndex == 132 && (_dice >= 10 && _dice <= 15)) {
+                    _numOfNums = 6;
                 }
 
-                if (numOfNumsOrIndex == 133 && (number >= 13 && number <= 18)) {
-                    numOfNums = 6;
+                if (_numOfNumsOrIndex == 133 && (_dice >= 13 && _dice <= 18)) {
+                    _numOfNums = 6;
                 }
 
-                if (numOfNumsOrIndex == 134 && (number >= 16 && number <= 21)) {
-                    numOfNums = 6;
+                if (_numOfNumsOrIndex == 134 && (_dice >= 16 && _dice <= 21)) {
+                    _numOfNums = 6;
                 }
 
-                if (numOfNumsOrIndex == 135 && (number >= 19 && number <= 24)) {
-                    numOfNums = 6;
+                if (_numOfNumsOrIndex == 135 && (_dice >= 19 && _dice <= 24)) {
+                    _numOfNums = 6;
                 }
 
-                if (numOfNumsOrIndex == 136 && (number >= 22 && number <= 27)) {
-                    numOfNums = 6;
+                if (_numOfNumsOrIndex == 136 && (_dice >= 22 && _dice <= 27)) {
+                    _numOfNums = 6;
                 }
 
-                if (numOfNumsOrIndex == 137 && (number >= 25 && number <= 30)) {
-                    numOfNums = 6;
+                if (_numOfNumsOrIndex == 137 && (_dice >= 25 && _dice <= 30)) {
+                    _numOfNums = 6;
                 }
 
-                if (numOfNumsOrIndex == 138 && (number >= 28 && number <= 33)) {
-                    numOfNums = 6;
+                if (_numOfNumsOrIndex == 138 && (_dice >= 28 && _dice <= 33)) {
+                    _numOfNums = 6;
                 }
 
-                if (numOfNumsOrIndex == 139 && (number >= 31 && number <= 36)) {
-                    numOfNums = 6;
+                if (_numOfNumsOrIndex == 139 && (_dice >= 31 && _dice <= 36)) {
+                    _numOfNums = 6;
                 }
 
-                if (numOfNumsOrIndex == 140 && ((number >= 0 && number <= 3) || number == 37)) {
-                    numOfNums = 5;
+                if (_numOfNumsOrIndex == 140 && ((_dice >= 0 && _dice <= 3) || _dice == 37)) {
+                    _numOfNums = 5;
                 }
 
-                uint8 n;
+                uint256 _number;
 
-                if (numOfNumsOrIndex == 141) {
-                    for (n = 1; n <= 34; n += 3) {
-                        if (n == number) {
-                            numOfNums = 12;
+                if (_numOfNumsOrIndex == 141) {
+                    for (_number = 1; _number <= 34; _number += 3) {
+                        if (_number == _dice) {
+                            _numOfNums = 12;
                             break;
                         }
                     }
                 }
 
-                if (numOfNumsOrIndex == 142) {
-                    for (n = 2; n <= 35; n += 3) {
-                        if (n == number) {
-                            numOfNums = 12;
+                if (_numOfNumsOrIndex == 142) {
+                    for (_number = 2; _number <= 35; _number += 3) {
+                        if (_number == _dice) {
+                            _numOfNums = 12;
                             break;
                         }
                     }
                 }
 
-                if (numOfNumsOrIndex == 143) {
-                    for (n = 3; n <= 36; n += 3) {
-                        if (n == number) {
-                            numOfNums = 12;
+                if (_numOfNumsOrIndex == 143) {
+                    for (_number = 3; _number <= 36; _number += 3) {
+                        if (_number == _dice) {
+                            _numOfNums = 12;
                             break;
                         }
                     }
                 }
 
-                if (numOfNumsOrIndex == 144 && (number >= 1 && number <= 12)) {
-                    numOfNums = 12;
+                if (_numOfNumsOrIndex == 144 && (_dice >= 1 && _dice <= 12)) {
+                    _numOfNums = 12;
                 }
 
-                if (numOfNumsOrIndex == 145 && (number >= 13 && number <= 24)) {
-                    numOfNums = 12;
+                if (_numOfNumsOrIndex == 145 && (_dice >= 13 && _dice <= 24)) {
+                    _numOfNums = 12;
                 }
 
-                if (numOfNumsOrIndex == 146 && (number >= 25 && number <= 36)) {
-                    numOfNums = 12;
+                if (_numOfNumsOrIndex == 146 && (_dice >= 25 && _dice <= 36)) {
+                    _numOfNums = 12;
                 }
 
-                if (numOfNumsOrIndex == 147) {
-                    for (n = 1; n <= 35; n += 2) {
-                        if (n == number) {
-                            numOfNums = 18;
+                if (_numOfNumsOrIndex == 147) {
+                    for (_number = 1; _number <= 35; _number += 2) {
+                        if (_number == _dice) {
+                            _numOfNums = 18;
                             break;
                         }
                     }
                 }
 
-                if (numOfNumsOrIndex == 148) {
-                    for (n = 2; n <= 36; n += 2) {
-                        if (n == number) {
-                            numOfNums = 18;
+                if (_numOfNumsOrIndex == 148) {
+                    for (_number = 2; _number <= 36; _number += 2) {
+                        if (_number == _dice) {
+                            _numOfNums = 18;
                             break;
                         }
                     }
                 }
 
-                if (numOfNumsOrIndex == 149 &&
-                    (number == 1 || number == 3 || number == 5 || number == 7 || number == 9 || number == 12 ||
-                    number == 14 || number == 16 || number == 18 || number == 19 || number == 21 || number == 23 ||
-                    number == 25 || number == 27 || number == 30 || number == 32 || number == 34 || number == 36)) {
-                    numOfNums = 18;
+                if (_numOfNumsOrIndex == 149 &&
+                    (_dice == 1 || _dice == 3 || _dice == 5 || _dice == 7 || _dice == 9 || _dice == 12 ||
+                    _dice == 14 || _dice == 16 || _dice == 18 || _dice == 19 || _dice == 21 || _dice == 23 ||
+                    _dice == 25 || _dice == 27 || _dice == 30 || _dice == 32 || _dice == 34 || _dice == 36)) {
+                    _numOfNums = 18;
                 }
 
-                if (numOfNumsOrIndex == 150 &&
-                    (number == 2 || number == 4 || number == 6 || number == 8 || number == 10 || number == 11 ||
-                    number == 13 || number == 15 || number == 17 || number == 20 || number == 22 || number == 24 ||
-                    number == 26 || number == 28 || number == 29 || number == 31 || number == 33 || number == 35)) {
-                    numOfNums = 18;
+                if (_numOfNumsOrIndex == 150 &&
+                    (_dice == 2 || _dice == 4 || _dice == 6 || _dice == 8 || _dice == 10 || _dice == 11 ||
+                    _dice == 13 || _dice == 15 || _dice == 17 || _dice == 20 || _dice == 22 || _dice == 24 ||
+                    _dice == 26 || _dice == 28 || _dice == 29 || _dice == 31 || _dice == 33 || _dice == 35)) {
+                    _numOfNums = 18;
                 }
 
-                if (numOfNumsOrIndex == 151 && (number >= 1 && number <= 18)) {
-                    numOfNums = 18;
+                if (_numOfNumsOrIndex == 151 && (_dice >= 1 && _dice <= 18)) {
+                    _numOfNums = 18;
                 }
 
-                if (numOfNumsOrIndex == 152 && (number >= 19 && number <= 36)) {
-                    numOfNums = 18;
+                if (_numOfNumsOrIndex == 152 && (_dice >= 19 && _dice <= 36)) {
+                    _numOfNums = 18;
                 }
 
-                // Increase winAmount.
-                if (numOfNums > 0) {
-                    winAmount += uint32(odds[numOfNums] + 1) * amount;
+                if (_numOfNums > 0) {
+                    _winAmount = _winAmount.add((odds[_numOfNums] + 1).mul(_amount));
                 }
             }
-
         }
 
-        return winAmount;
+        return _winAmount;
     }
 
-    function calcMaxWinAmount(bytes32 betData) private view returns (uint32) {
-        uint32 maxWinAmount = 0;
-        for (uint8 guessWinNumber = 0; guessWinNumber <= 37; ++guessWinNumber) {
-            uint32 amount = calcWinAmountOnNumber(betData, guessWinNumber);
-            if (amount > maxWinAmount) {
-                maxWinAmount = amount;
+    /**
+     * @dev Calculate the amount we will win max
+     * @param _betData The bet details
+     * @return The max amount of chips we will win
+     */
+    function calcMaxWinAmount(bytes32 _betData) private view returns (uint256) {
+        uint256 _maxWinAmount = 0;
+        for (uint256 _guessWinNumber = 0; _guessWinNumber <= 37; ++_guessWinNumber) {
+            uint256 _amount = calcWinAmountOnNumber(_betData, _guessWinNumber);
+            if (_amount > _maxWinAmount) {
+                _maxWinAmount = _amount;
             }
         }
-        return maxWinAmount;
+        return _maxWinAmount;
     }
 
-    function clearBet(uint256 magicNumber) private {
-        Bet storage bet = bets[magicNumber];
-
-        // Clear the slot.
-        bet.player = address(0);
-        bet.transferredAmount = 0;
-        bet.betData = bytes32(0);
-        bet.placedOnBlock = 0;
-        bet.lastRevealBlock = 0;
+    /**
+     * @dev Erase bet information on specified magic number
+     * @param _magicNumber The hash value and it is also the place where the bet info. are stored
+     */
+    function clearBet(uint256 _magicNumber) private {
+        Bet storage _bet = bets[_magicNumber];
+        _bet.player = address(0);
+        _bet.transferredAmount = 0;
+        _bet.betData = bytes32(0);
+        _bet.placedOnBlock = 0;
+        _bet.lastRevealBlock = 0;
     }
 
+    /**
+     * @dev Place a bet
+     * @param _magicNumber The hash value of the random number that is provided by our server
+     * @param _expiredAfterBlock The bet should be revealed before this block number,
+     *                           otherwise the bet will never be revealed
+     * @param _betData The bet details
+     * @param _signR The signature R value
+     * @param _signS The signature S value
+     */
     function placeBet(
-        uint256 magicNumber,
-        uint256 expiredAfterBlock,
-        bytes32 betData,
-        bytes32 r,
-        bytes32 s
+        uint256 _magicNumber,
+        uint256 _expiredAfterBlock,
+        bytes32 _betData,
+        bytes32 _signR,
+        bytes32 _signS
     )
         public
         payable
     {
+        uint256 _currBlock = block.number;
         require(
-            block.number <= expiredAfterBlock,
+            _currBlock <= _expiredAfterBlock,
             "Timeout of current bet to place."
         );
 
         // Check the slot and make sure there is no playing bet.
-        Bet storage bet = bets[magicNumber];
-        require(bet.player == address(0), "The slot is not empty.");
+        Bet storage _bet = bets[_magicNumber];
+        require(_bet.player == address(0), "The slot is not empty.");
 
         // Throw if there are not enough wei are provided by customer.
-        uint32 betAmount = calcBetAmount(betData);
-        uint256 betWei = convertAmountToWei(betAmount);
+        uint256 _betAmount = calcBetAmount(_betData);
+        uint256 _betWei = convertAmountToWei(_betAmount);
+        uint256 _wei = msg.value;
 
-        require(msg.value >= betWei, "There are not enough wei are provided by customer.");
-        require(betWei <= maxBetWei, "Exceed the maximum.");
+        require(_wei >= _betWei, "There are not enough wei are provided by customer.");
+        require(_betWei <= maxBetWei, "Exceed the maximum.");
 
         // Check the signature.
-        bytes memory prefix = "\x19Ethereum Signed Message:\n32";
-        bytes32 hash = keccak256(
-            abi.encodePacked(magicNumber, expiredAfterBlock)
+        bytes memory _prefix = "\x19Ethereum Signed Message:\n32";
+        bytes32 _hashValue = keccak256(
+            abi.encodePacked(_magicNumber, _expiredAfterBlock)
         );
-        address signer = ecrecover(
-            keccak256(abi.encodePacked(prefix, hash)),
-            28, r, s
+        address _signer = ecrecover(
+            keccak256(abi.encodePacked(_prefix, _hashValue)),
+            28, _signR, _signS
         );
         require(
-            signer == banker,
+            _signer == banker,
             "The signature is not signed by the banker."
         );
 
         // Prepare and save bet record.
-        bet.player = msg.sender;
-        bet.transferredAmount = msg.value;
-        bet.betData = betData;
-        bet.placedOnBlock = block.number;
-        bet.lastRevealBlock = expiredAfterBlock;
-        bets[magicNumber] = bet;
+        _bet.player = msg.sender;
+        _bet.transferredAmount = _wei;
+        _bet.betData = _betData;
+        _bet.placedOnBlock = _currBlock;
+        _bet.lastRevealBlock = _expiredAfterBlock;
+        bets[_magicNumber] = _bet;
 
-        emit BetIsPlaced(bet.transferredAmount, magicNumber, betData, expiredAfterBlock);
+        emit BetIsPlaced(_wei, _magicNumber, _betData, _expiredAfterBlock);
     }
 
-    function revealBet(uint256 randomNumber) public {
+    /**
+     * @dev Reveal a bet to calculate the result
+     * @param _randomNumber The random number
+     */
+    function revealBet(uint256 _randomNumber) public {
         // Get the magic-number and find the slot of the bet.
-        uint256 magicNumber = uint256(
-            keccak256(abi.encodePacked(randomNumber))
+        uint256 _magicNumber = uint256(
+            keccak256(abi.encodePacked(_randomNumber))
         );
-        Bet storage bet = bets[magicNumber];
+        Bet storage _bet = bets[_magicNumber];
 
         // Save to local variables.
-        address payable betPlayer = bet.player;
-        bytes32 betbetData = bet.betData;
-        uint256 betPlacedOnBlock = bet.placedOnBlock;
-        uint256 betLastRevealBlock = bet.lastRevealBlock;
+        address payable _betPlayer = _bet.player;
+        uint256 _betPlacedOnBlock = _bet.placedOnBlock;
+        uint256 _currBlock = block.number;
 
         require(
-            betPlayer != address(0),
+            _betPlayer != address(0),
             "The bet slot cannot be empty."
         );
 
         require(
-            betPlacedOnBlock < block.number,
+            _betPlacedOnBlock < _currBlock,
             "Cannot reveal the bet on the same block where it was placed."
         );
 
         require(
-            block.number <= betLastRevealBlock,
+            _currBlock <= _bet.lastRevealBlock,
             "The bet is out of the block range (Timeout!)."
         );
 
         // Calculate the result.
-        bytes32 n = keccak256(
-            abi.encodePacked(randomNumber, blockhash(betPlacedOnBlock))
+        bytes32 _betHash = keccak256(
+            abi.encodePacked(_randomNumber, blockhash(_betPlacedOnBlock))
         );
-        uint8 spinNumber = uint8(uint256(n) % 38);
+        uint256 _dice = uint256(_betHash) % 38;
 
         // Calculate win amount.
-        uint32 winAmount = calcWinAmountOnNumber(betbetData, spinNumber);
-        uint256 winWei = 0;
-        if (winAmount > 0) {
-            winWei = convertAmountToWei(winAmount);
-            if (address(this).balance < winWei) {
-                emit BetCannotBeRevealed(magicNumber, RevealFailStatus.InsufficientContractBalance);
+        uint256 _winAmount = calcWinAmountOnNumber(_bet.betData, _dice);
+        uint256 _winWei = 0;
+        if (_winAmount > 0) {
+            _winWei = convertAmountToWei(_winAmount);
+            if (address(this).balance < _winWei) {
+                emit BetCannotBeRevealed(_magicNumber, RevealFailStatus.InsufficientContractBalance);
                 return;
             }
-            betPlayer.transfer(winWei);
+            _betPlayer.transfer(_winWei);
         }
-
-        emit BetIsRevealed(magicNumber, spinNumber, winAmount);
-        clearBet(magicNumber);
+        emit BetIsRevealed(_magicNumber, _dice, _winAmount);
+        clearBet(_magicNumber);
     }
 
-    function refundBet(uint256 magicNumber) public {
-        Bet storage bet = bets[magicNumber];
+    /**
+     * @dev Refund bet amount back to player and clear the bet
+     * @param _magicNumber The hash value of the random number
+     */
+    function refundBet(uint256 _magicNumber) public {
+        Bet storage _bet = bets[_magicNumber];
+        address payable _playerAddr = _bet.player;
 
-        address payable player = bet.player;
-        uint256 transferredAmount = bet.transferredAmount;
-        uint256 lastRevealBlock = bet.lastRevealBlock;
+        require(_playerAddr != address(0), "The bet slot is empty.");
+        require(block.number > _bet.lastRevealBlock, "The bet is still in play.");
 
-        require(player != address(0), "The bet slot is empty.");
-
-        require(block.number > lastRevealBlock, "The bet is still in play.");
-
-        player.transfer(transferredAmount);
+        _playerAddr.transfer(_bet.transferredAmount);
 
         // Clear the slot.
-        clearBet(magicNumber);
+        clearBet(_magicNumber);
     }
 }
