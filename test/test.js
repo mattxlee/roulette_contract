@@ -8,10 +8,72 @@ const bigNum = eth => {
     return web3.utils.toBN(eth);
 };
 
+const generateRandomNumber = () => {
+    const randNumHex = web3.utils.randomHex(32);
+    const randNum = web3.utils.toBN(randNumHex);
+    const hashHex = web3.utils.keccak256(randNumHex);
+    return [randNum, hashHex];
+};
+
+const makeSignature = async (magicHex, blockNum, addr) => {
+    // randNum connect with blockNum
+    const a1 = web3.utils.hexToBytes(magicHex);
+    const a2 = blockNum.toArray("be", 32);
+    const data = [...a1, ...a2];
+    assert.equal(data.length, 64, "The packed data size should be 64!");
+
+    // Make hash message
+    const hashHex = web3.utils.keccak256(web3.utils.bytesToHex(data));
+
+    // Make signature
+    const signHex = await web3.eth.sign(hashHex, addr);
+    const signData = web3.utils.hexToBytes(signHex);
+    assert.equal(signData.length, 32 * 2 + 1, "Signature data size is invalid!");
+
+    const signR = signData.splice(0, 32);
+    const signS = signData.splice(0, 32);
+    const signV = signData[0] + 27;
+    return {
+        r: signR,
+        s: signS,
+        v: signV
+    };
+};
+
+const generateRandomNumberAndSign = async (signV, blockNum, addr) => {
+    let [randNum, hashHex] = generateRandomNumber();
+    let sign = await makeSignature(hashHex, blockNum, addr);
+    while (sign.v !== signV) {
+        [randNum, hashHex] = generateRandomNumber();
+        sign = await makeSignature(hashHex, blockNum, addr);
+    }
+    return {
+        randNum,
+        magicNumber: hashHex,
+        signR: sign.r,
+        signS: sign.s,
+        signV: sign.v
+    };
+};
+
+const makeRandomBetData = () => {
+    const data = [1, 100, 129];
+    const paddingBytes = 32 - data.length;
+    for (let i = 0; i < paddingBytes; ++i) data.push(0);
+    const betDataHex = web3.utils.bytesToHex(data);
+    return betDataHex;
+};
+
 contract("Banker", async accounts => {
     const ownerAddr = accounts[0];
     const bankerAddr = accounts[1];
     const playerAddr = accounts[2];
+
+    it("Utilities verification.", async () => {
+        const blockNum = web3.utils.toBN(await web3.eth.getBlockNumber());
+        const signObj = await generateRandomNumberAndSign(28, blockNum, bankerAddr);
+        assert.equal(signObj.signV, 28, "Signature is invalid!");
+    });
 
     it("Setup banker address with normal player should fail.", async () => {
         const banker = await Banker.deployed();
@@ -91,5 +153,25 @@ contract("Banker", async accounts => {
     it("Withdraw 1 eth to owner account.", async () => {
         const banker = await Banker.deployed();
         await truffleAssert.passes(banker.withdrawToOwner(eth1, { from: ownerAddr }));
+    });
+
+    // We are ready to place bet
+    it("Place bet by generating a random number.", async () => {
+        const banker = await Banker.deployed();
+
+        const blockNum = web3.utils.toBN(await web3.eth.getBlockNumber()).add(web3.utils.toBN(100));
+        const signObj = await generateRandomNumberAndSign(28, blockNum, bankerAddr);
+
+        const tx = await banker.placeBet(
+            signObj.magicNumber,
+            blockNum,
+            makeRandomBetData(),
+            signObj.signR,
+            signObj.signS,
+            { from: playerAddr, value: eth1 }
+        );
+        truffleAssert.eventEmitted(tx, "BetIsPlaced", ev => {
+            return true;
+        });
     });
 });
