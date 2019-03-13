@@ -162,12 +162,12 @@ contract Banker {
                 "Invalid bet amount."
             );
 
-            _betAmount += _amount;
+            _betAmount = _betAmount.add(_amount);
 
             // Skip numbers.
             uint256 _numOfNumsOrIndex = uint8(_betData[_p++]);
             if (_numOfNumsOrIndex <= 4) {
-                _p += _numOfNumsOrIndex;
+                _p = _p.add(_numOfNumsOrIndex);
             } else {
                 require(_numOfNumsOrIndex >= 129 && _numOfNumsOrIndex <= 152, "Invalid bet index.");
             }
