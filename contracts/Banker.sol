@@ -139,7 +139,7 @@ contract Banker {
      * @return The value of eth
      */
     function convertAmountToWei(uint256 _amount) private pure returns (uint256) {
-        return _amount.mul(rou1.mul(10));
+        return _amount.mul(rou1);
     }
 
     /**
@@ -400,15 +400,15 @@ contract Banker {
     /**
      * @dev Place a bet
      * @param _magicNumber The hash value of the random number that is provided by our server
-     * @param _expiredAfterBlock The bet should be revealed before this block number,
-     *                           otherwise the bet will never be revealed
+     * @param _lastRevealBlock The bet should be revealed before this block number,
+     *                         otherwise the bet will never be revealed
      * @param _betData The bet details
      * @param _signR The signature R value
      * @param _signS The signature S value
      */
     function placeBet(
         uint256 _magicNumber,
-        uint256 _expiredAfterBlock,
+        uint256 _lastRevealBlock,
         bytes32 _betData,
         bytes32 _signR,
         bytes32 _signS
@@ -418,7 +418,7 @@ contract Banker {
     {
         uint256 _currBlock = block.number;
         require(
-            _currBlock <= _expiredAfterBlock,
+            _currBlock <= _lastRevealBlock,
             "Timeout of current bet to place."
         );
 
@@ -436,27 +436,19 @@ contract Banker {
 
         // Check the signature.
         bytes memory _prefix = "\x19Ethereum Signed Message:\n32";
-        bytes32 _hashValue = keccak256(
-            abi.encodePacked(_magicNumber, _expiredAfterBlock)
-        );
-        address _signer = ecrecover(
-            keccak256(abi.encodePacked(_prefix, _hashValue)),
-            28, _signR, _signS
-        );
-        require(
-            _signer == banker,
-            "The signature is not signed by the banker."
-        );
+        bytes32 _hashValue = keccak256(abi.encodePacked(_magicNumber, _lastRevealBlock));
+        address _signer = ecrecover(keccak256(abi.encodePacked(_prefix, _hashValue)), 28, _signR, _signS);
+        require(_signer == banker, "The signature is not signed by the banker.");
 
         // Prepare and save bet record.
         _bet.player = msg.sender;
         _bet.transferredAmount = _wei;
         _bet.betData = _betData;
         _bet.placedOnBlock = _currBlock;
-        _bet.lastRevealBlock = _expiredAfterBlock;
+        _bet.lastRevealBlock = _lastRevealBlock;
         bets[_magicNumber] = _bet;
 
-        emit BetIsPlaced(_wei, _magicNumber, _betData, _expiredAfterBlock);
+        emit BetIsPlaced(_wei, _magicNumber, _betData, _lastRevealBlock);
     }
 
     /**
@@ -491,9 +483,7 @@ contract Banker {
         );
 
         // Calculate the result.
-        bytes32 _betHash = keccak256(
-            abi.encodePacked(_randomNumber, blockhash(_betPlacedOnBlock))
-        );
+        bytes32 _betHash = keccak256(abi.encodePacked(_randomNumber, blockhash(_betPlacedOnBlock)));
         uint256 _dice = uint256(_betHash) % 38;
 
         // Calculate win amount.
