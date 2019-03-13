@@ -5,6 +5,9 @@ import "./SafeMath.sol";
 contract Banker {
     using SafeMath for uint256;
 
+    uint256 constant private eth1 = 1e18;
+    uint256 public maxBetWei;
+
     address payable public owner;
     address public banker;
 
@@ -40,7 +43,7 @@ contract Banker {
     constructor() public {
         owner = msg.sender;
 
-        maxBetWei = 1 ether / 10;
+        maxBetWei = eth1 / 10;
 
         // Initialize odds.
         odds[1] = 35;
@@ -53,8 +56,9 @@ contract Banker {
         odds[18] = 1;
     }
 
-    function setMaxBetWei(uint256 numOfWei) public ownerOnly {
-        maxBetWei = numOfWei;
+    function setMaxBetWei(uint256 _numOfWei) public ownerOnly {
+        require(_numOfWei <= eth1.mul(10) && _numOfWei >= 1e18 / 100, "The amount of max bet is out of range!");
+        maxBetWei = _numOfWei;
     }
 
     function deposit() public payable {}
