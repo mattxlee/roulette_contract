@@ -16,7 +16,7 @@ contract Banker {
         uint256 lastRevealBlock;
     }
 
-    mapping (uint256 => uint8) odds;
+    mapping (uint256 => uint256) odds;
     mapping (uint256 => Bet) bets;
 
     event BetIsPlaced(
