@@ -49,7 +49,7 @@ const generateRandomNumberAndSign = async (signV, blockNum, addr) => {
     }
     return {
         randNum,
-        magicNumber: hashHex,
+        magicHex: hashHex,
         signR: sign.r,
         signS: sign.s,
         signV: sign.v
@@ -62,6 +62,14 @@ const makeRandomBetData = () => {
     for (let i = 0; i < paddingBytes; ++i) data.push(0);
     const betDataHex = web3.utils.bytesToHex(data);
     return betDataHex;
+};
+
+const sleep = secs => {
+    return new Promise(resolve => {
+        setTimeout(() => {
+            resolve();
+        }, secs);
+    });
 };
 
 contract("Banker", async accounts => {
@@ -155,23 +163,55 @@ contract("Banker", async accounts => {
         await truffleAssert.passes(banker.withdrawToOwner(eth1, { from: ownerAddr }));
     });
 
+    let randObj;
+
     // We are ready to place bet
     it("Place bet by generating a random number.", async () => {
         const banker = await Banker.deployed();
 
         const blockNum = web3.utils.toBN(await web3.eth.getBlockNumber()).add(web3.utils.toBN(100));
-        const signObj = await generateRandomNumberAndSign(28, blockNum, bankerAddr);
+        randObj = await generateRandomNumberAndSign(28, blockNum, bankerAddr);
 
         const tx = await banker.placeBet(
-            signObj.magicNumber,
+            randObj.magicHex,
             blockNum,
             makeRandomBetData(),
-            signObj.signR,
-            signObj.signS,
+            randObj.signR,
+            randObj.signS,
             { from: playerAddr, value: eth1 }
         );
-        truffleAssert.eventEmitted(tx, "BetIsPlaced", ev => {
-            return true;
-        });
+        truffleAssert.eventEmitted(tx, "BetIsPlaced");
+    });
+
+    it("Wait on next block to reveal.", async () => {
+        const banker = await Banker.deployed();
+        const targetBlockNum = web3.utils.toBN(await web3.eth.getBlockNumber()).add(web3.utils.toBN(1));
+
+        while (1) {
+            await sleep(1000);
+            const currBlockNum = web3.utils.toBN(await web3.eth.getBlockNumber());
+            if (currBlockNum.eq(targetBlockNum)) {
+                break;
+            }
+        }
+    });
+
+    it("Reveal with a wrong number.", async () => {
+        const banker = await Banker.deployed();
+
+        await truffleAssert.reverts(banker.revealBet(web3.utils.toBN(123)), "The bet slot cannot be empty.");
+    });
+
+    it("Reveal bet.", async () => {
+        const banker = await Banker.deployed();
+
+        const tx = await banker.revealBet(randObj.randNum);
+        truffleAssert.eventEmitted(tx, "BetIsRevealed");
+    });
+
+    it("Reveal bet again should fail.", async () => {
+        const banker = await Banker.deployed();
+
+        await truffleAssert.reverts(banker.revealBet(randObj.randNum), "The bet slot cannot be empty.");
     });
 });
