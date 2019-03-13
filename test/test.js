@@ -4,7 +4,7 @@ const assert = require("chai").assert;
 const Banker = artifacts.require("Banker");
 
 const eth1 = web3.utils.toBN(web3.utils.toWei("1"));
-const bignum = eth => {
+const bigNum = eth => {
     return web3.utils.toBN(eth);
 };
 
@@ -37,7 +37,7 @@ contract("Banker", async accounts => {
     it("Initialize max bet with a very big number should fail.", async () => {
         const banker = await Banker.deployed();
         await truffleAssert.reverts(
-            banker.setMaxBetWei(eth1.mul(bignum(20))),
+            banker.setMaxBetWei(eth1.mul(bigNum(20))),
             "The amount of max bet is out of range!"
         );
     });
@@ -45,7 +45,7 @@ contract("Banker", async accounts => {
     it("Initialize max bet with a very small number should fail.", async () => {
         const banker = await Banker.deployed();
         await truffleAssert.reverts(
-            banker.setMaxBetWei(eth1.div(bignum(200))),
+            banker.setMaxBetWei(eth1.div(bigNum(200))),
             "The amount of max bet is out of range!"
         );
     });
@@ -65,19 +65,19 @@ contract("Banker", async accounts => {
         const banker = await Banker.deployed();
         const balanceStr = await web3.eth.getBalance(banker.address);
         const balance = web3.utils.toBN(balanceStr);
-        assert.isTrue(balance.eq(bignum(0)), "The balance of an initialized contract should be zero!");
+        assert.isTrue(balance.eq(bigNum(0)), "The balance of an initialized contract should be zero!");
     });
 
     it("Deposit 10 eth to contract with player account.", async () => {
         const banker = await Banker.deployed();
-        await truffleAssert.passes(banker.deposit({ from: playerAddr, value: eth1.mul(bignum(10)) }));
+        await truffleAssert.passes(banker.deposit({ from: playerAddr, value: eth1.mul(bigNum(10)) }));
     });
 
     it("The eth amount of the contract should be 10 eth.", async () => {
         const banker = await Banker.deployed();
         const balanceStr = await web3.eth.getBalance(banker.address);
         const balance = web3.utils.toBN(balanceStr);
-        assert.isTrue(balance.eq(eth1.mul(bignum(10))), "The balance is incorrect!");
+        assert.isTrue(balance.eq(eth1.mul(bigNum(10))), "The balance is incorrect!");
     });
 
     it("Withdraw eth by a player account is not allowed.", async () => {
