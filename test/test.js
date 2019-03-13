@@ -200,7 +200,7 @@ contract("Banker", async accounts => {
         while (1) {
             await sleep(1000);
             const currBlockNum = web3.utils.toBN(await web3.eth.getBlockNumber());
-            if (currBlockNum.eq(targetBlockNum)) {
+            if (currBlockNum.gte(targetBlockNum)) {
                 break;
             }
         }
