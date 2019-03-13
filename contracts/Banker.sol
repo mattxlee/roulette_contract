@@ -1,16 +1,21 @@
+//      ___________                          ______    __________
+// _______  /___  /_______________________  ____  /______  /__  /_____
+// _  _ \  __/_  __ \  _ \_  ___/  __ \  / / /_  /_  _ \  __/  __/  _ \
+// /  __/ /_ _  / / /  __/  /   / /_/ / /_/ /_  / /  __/ /_ / /_ /  __/
+// \___/\__/ /_/ /_/\___//_/    \____/\__,_/ /_/  \___/\__/ \__/ \___/
+//
+// This contract is deployed to https://etheroulette.win
+//
+
 pragma solidity ^0.5.0;
 
 import "./SafeMath.sol";
 
+/// Main contract.
 contract Banker {
     using SafeMath for uint256;
 
-    uint256 constant private eth1 = 1e18;
-    uint256 public maxBetWei;
-
-    address payable public owner;
-    address public banker;
-
+    // This struct will store bet related values
     struct Bet {
         address payable player;
         uint256 transferredAmount; // For refund.
@@ -19,9 +24,33 @@ contract Banker {
         uint256 lastRevealBlock;
     }
 
+    // Error declaration
+    enum RevealFailStatus { InsufficientContractBalance }
+
+    uint256 constant private eth1 = 1e18;
+
+    // Owner will be able to withdraw and setup a new banker account
+    address payable public owner;
+
+    // Banker is the account to generate random number, so it is the key account to verify the signature
+    address public banker;
+
+    // 0~maxBetWei is the range for the amount of placed bet.
+    uint256 public maxBetWei;
+
+    // odds for roulette game
     mapping (uint256 => uint256) odds;
+
+    // All bets store in this map
     mapping (uint256 => Bet) bets;
 
+    /**
+     * @dev Emit on a new bet is placed
+     * @param transferredAmount Represent how many eth are transferred
+     * @param magicNumber The hash value of the random number
+     * @param betData Bet details
+     * @param lastRevealBlock The bet should be revealed before this block or the bet will never be revealed
+     */
     event BetIsPlaced(
         uint256 transferredAmount,
         uint256 magicNumber,
@@ -29,12 +58,22 @@ contract Banker {
         uint256 lastRevealBlock
     );
 
-    enum RevealFailStatus { InsufficientContractBalance }
-
+    /**
+     * @dev Emit on a bet is not able to reveal
+     * @param magicNumber The hash value of the random number
+     * @param reason The fail reason
+     */
     event BetCannotBeRevealed(uint256 magicNumber, RevealFailStatus reason);
 
+    /**
+     * @dev Emit on a bet is revealed
+     * @param magicNumber The hash value of the random number
+     * @param dice The result number has been revealed eventually
+     * @param winAmount The amount of the contract has paid to player.
+     */
     event BetIsRevealed(uint256 magicNumber, uint256 dice, uint256 winAmount);
 
+    // Ensure the function is called by owner
     modifier ownerOnly() {
         require(msg.sender == owner, "Only owner can call this function.");
         _;
