@@ -164,23 +164,33 @@ contract("Banker", async accounts => {
     });
 
     let randObj;
+    let blockNum;
+    let betDataHex;
 
-    // We are ready to place bet
     it("Place bet by generating a random number.", async () => {
         const banker = await Banker.deployed();
 
-        const blockNum = web3.utils.toBN(await web3.eth.getBlockNumber()).add(web3.utils.toBN(100));
+        blockNum = web3.utils.toBN(await web3.eth.getBlockNumber()).add(web3.utils.toBN(100));
         randObj = await generateRandomNumberAndSign(28, blockNum, bankerAddr);
+        betDataHex = makeRandomBetData();
 
-        const tx = await banker.placeBet(
-            randObj.magicHex,
-            blockNum,
-            makeRandomBetData(),
-            randObj.signR,
-            randObj.signS,
-            { from: playerAddr, value: eth1 }
-        );
+        const tx = await banker.placeBet(randObj.magicHex, blockNum, betDataHex, randObj.signR, randObj.signS, {
+            from: playerAddr,
+            value: eth1
+        });
         truffleAssert.eventEmitted(tx, "BetIsPlaced");
+    });
+
+    it("Place same bet again should fail.", async () => {
+        const banker = await Banker.deployed();
+
+        truffleAssert.reverts(
+            banker.placeBet(randObj.magicHex, blockNum, betDataHex, randObj.signR, randObj.signS, {
+                from: playerAddr,
+                value: eth1
+            }),
+            "The slot is not empty."
+        );
     });
 
     it("Wait on next block to reveal.", async () => {
