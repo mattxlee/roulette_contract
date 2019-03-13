@@ -1,7 +1,9 @@
 pragma solidity ^0.5.0;
 
+import "./SafeMath.sol";
+
 contract Banker {
-    uint256 maxBetWei;
+    using SafeMath for uint256;
 
     address payable public owner;
     address public banker;
