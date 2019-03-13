@@ -56,24 +56,24 @@ contract Banker {
         odds[18] = 1;
     }
 
-    function setMaxBetWei(uint256 _numOfWei) public ownerOnly {
-        require(_numOfWei <= eth1.mul(10) && _numOfWei >= 1e18 / 100, "The amount of max bet is out of range!");
-        maxBetWei = _numOfWei;
+    function setBanker(address _newBanker) public ownerOnly {
+        banker = _newBanker;
     }
 
     function deposit() public payable {}
 
-    function setBanker(address newBanker) public ownerOnly {
-        banker = newBanker;
-    }
-
-    function withdrawToOwner(uint256 weiToWithdraw) public ownerOnly {
+    function withdrawToOwner(uint256 _wei) public ownerOnly {
         require(
-            address(this).balance >= weiToWithdraw,
+            address(this).balance >= _wei,
             "The value of this withdrawal is invalid."
         );
 
-        owner.transfer(weiToWithdraw);
+        owner.transfer(_wei);
+    }
+
+    function setMaxBetWei(uint256 _numOfWei) public ownerOnly {
+        require(_numOfWei <= eth1.mul(10) && _numOfWei >= 1e18 / 100, "The amount of max bet is out of range!");
+        maxBetWei = _numOfWei;
     }
 
     function convertAmountToWei(uint32 amount) private pure returns (uint256) {
