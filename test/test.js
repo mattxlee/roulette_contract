@@ -194,7 +194,6 @@ contract("Banker", async accounts => {
     });
 
     it("Wait on next block to reveal.", async () => {
-        const banker = await Banker.deployed();
         const targetBlockNum = web3.utils.toBN(await web3.eth.getBlockNumber()).add(web3.utils.toBN(1));
 
         while (1) {
