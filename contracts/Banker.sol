@@ -14,6 +14,28 @@ import "./SafeMath.sol";
 contract Banker {
     using SafeMath for uint256;
 
+    struct Game {
+        uint256 poolEth; // Will be added from last game
+        uint256 jackpotEth; // Each jackpot will drain all
+    }
+
+    mapping (uint256 => Game) games;
+    uint256 gameID;
+
+    struct Player {
+        address payable addr;
+        uint256 affID;
+        uint256 deadEth;
+        uint256 keys;
+    }
+
+    // PlayerID => Player
+    mapping (uint256 => Player) players;
+    uint256 lastPlayerID;
+
+    // Name => PlayerID
+    mapping (bytes32 => uint256) names;
+
     // This struct will store bet related values
     struct Bet {
         address payable player;
@@ -84,6 +106,9 @@ contract Banker {
      */
     constructor() public {
         owner = msg.sender;
+
+        gameID = 1;
+        lastPlayerID = 1;
 
         maxBetWei = eth1 / 10;
 
