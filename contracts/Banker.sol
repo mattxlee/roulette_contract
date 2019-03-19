@@ -11,6 +11,7 @@ pragma solidity ^0.5.0;
 
 import "./SafeMath.sol";
 import "./Rou.sol";
+import "./KeyCalc.sol";
 import "./NameFilter.sol";
 
 /// Main contract
@@ -20,18 +21,13 @@ contract Banker {
 
     using NameFilter for string;
 
-    struct Game {
-        uint256 poolEth; // Will be added from last game
-        uint256 jackpotEth; // Each jackpot will drain all
-    }
-
-    mapping (uint256 => Game) games;
-    uint256 gameID;
-
     struct Player {
         address payable addr;
         bytes32 name;
         uint256 affID;
+    }
+
+    struct PlayerWallet {
         uint256 deadEth;
         uint256 keys;
     }
@@ -41,6 +37,15 @@ contract Banker {
     mapping (bytes32 => uint256) name2plyID;
     mapping (address => uint256) addr2plyID;
     uint256 lastPlyID;
+
+    struct Game {
+        uint256 poolEth; // Will be added from last game
+        uint256 jackpotEth; // Each jackpot will drain all
+        mapping (uint256 => PlayerWallet) wallets; // Player wallets (plyID as index)
+    }
+
+    mapping (uint256 => Game) games;
+    uint256 gameID;
 
     // This struct will store bet related values
     struct Bet {
@@ -141,19 +146,6 @@ contract Banker {
      * @dev Deposit eth to contract
      */
     function deposit() public payable {}
-
-    /**
-     * @dev Withdraw eth to owner account
-     * @param _eth The amount of eth to withdraw
-     */
-    function withdrawToOwner(uint256 _eth) public ownerOnly {
-        require(
-            address(this).balance >= _eth,
-            "The value of this withdrawal is invalid."
-        );
-
-        owner.transfer(_eth);
-    }
 
     /**
      * @dev If the player has enough keys then he is able to buy a name. (Only 1 name for each player)
@@ -543,6 +535,7 @@ contract Banker {
         // Calculate win amount.
         uint256 _winRou = calcWinRouOnNumber(_bet.betData, _dice);
         uint256 _winEth = 0;
+
         if (_winRou > 0) {
             _winEth = _winRou.toEth();
             if (address(this).balance < _winEth) {
@@ -552,6 +545,64 @@ contract Banker {
             _betPlayer.transfer(_winEth);
         }
         emit BetIsRevealed(_magicNumber, _dice, _winRou);
+
+        // Calculate how many eth remains to buy keys
+        if (_betPlayer.betEth > _winEth) {
+            // (1/38) * 90% of lose eth will be used to buy keys
+            uint256 _loseEth = _betPlayer.betEth.sub(_winEth);
+            uint256 _buyKeysEth = _loseEth.mul(90) / 100 / 38;
+
+            Game storage _game = games[gameID];
+            uint256 _ppk = _game.poolEth.keys().average(_game.poolEth);
+
+            uint256 _buyKeys = _game.poolEth.keysRec(_buyKeysEth);
+            uint256 _deadEth = _buyKeys.profit(_ppk);
+
+            // Add eth to player wallet
+            uint256 _plyID = addr2plyID[_betPlayer];
+            Wallet storage _wallet = _game.wallets[_plyID];
+            _wallet.deadEth = _wallet.deadEth.add(_deadEth);
+            _wallet.keys = _wallet.keys.add(_buyKeys);
+
+            // We need to deal with affiliate
+            Player storage _player = players[_plyID];
+            if (_player.affID > 0) {
+                // 3% keys mint for player
+                uint256 _extPlayerEth = _lostEth.mul(3) / 100 / 38;
+                _ppk = _game.poolEth.keys().average(_game.poolEth);
+                _extKeysForPlayer = _game.poolEth.keysRec(_extPlayerEth);
+                _wallet.keys = _wallet.keys.add(_extKeysForPlayer);
+                _game.poolEth = _game.poolEth.add(_extPlayerEth);
+
+                // 7% keys mint for affiliate
+                uint256 _affEth = _loseEth.mul(7) / 100 / 38;
+                _ppk = _game.poolEth.keys().average(_game.poolEth);
+                _affKeys = _game.poolEth.keysRec(_affEth);
+
+                Wallet storage _affWallet = _game.wallets[_affID];
+                _affWallet.keys = _affWallet.keys.add(_affKeys);
+                _game.poolEth = _game.poolEth.add(_affEth);
+            }
+        }
+
+        // Jackpot should be revealed here, we use _betHash to decide with 0.1% chance
+        uint256 _jackpotHit = _betHask % 1000;
+        if (_jackpotHit == 888) {
+            // Jackpot hit, 10% are saved for next round
+            uint256 _jackpotEth = _game.jackpotEth.mul(90) / 100;
+            _betPlayer.transfer(_jackpotEth);
+
+            // Calculate how many eth are remain
+            uint256 _poolEthRemains = _game.poolEth;
+            uint256 _jackpotEthRemains = _game.jackpotEth.sub(_jackpotEth);
+
+            // We start a new game here
+            ++gameID;
+            Game storage _game = games[gameID];
+            _game.poolEth = _ethRemains;
+            _game.jackpotEth = _jackpotEthRemains;
+        }
+
         clearBet(_magicNumber);
     }
 
@@ -570,5 +621,44 @@ contract Banker {
 
         // Clear the slot.
         clearBet(_magicNumber);
+    }
+
+    /**
+     * @dev Query how many eth remains from the player
+     * @param _plyAddr Address of the player
+     * @return Eth left
+     */
+    function getPlayerEth(address _plyAddr) public view returns (uint256) {
+        // TODO Returns the eth left for the player.
+    }
+
+    /**
+     * @dev Query how many keys from the player
+     * @param _plyAddr Address of the player
+     * @return Keys
+     */
+    function getPlayerKeys(address _plyAddr) public view returns (uint256) {
+        // TODO Returns the keys left for the player
+    }
+
+    /**
+     * @dev Query how much eth left for team
+     * @return Eth left
+     */
+    function getTeamEth() public view returns (uint256) {
+        // TODO Returns the team eth
+    }
+
+    /**
+     * @dev Withdraw eth
+     * @param _eth Amount of eth to withdraw
+     */
+    function withdraw(uint256 _eth) public {
+        address payable _addr = msg.sender;
+        if (_addr == owner) {
+            // Owner withdrawal
+        } else {
+            // Player or affiliate withdrawal
+        }
     }
 }
