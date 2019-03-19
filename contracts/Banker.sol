@@ -154,14 +154,13 @@ contract Banker {
 
     /**
      * @dev If the player has enough keys then he is able to buy a name. (Only 1 name for each player)
+     * @param _plyAddr Address of the player
      * @param _newName A new player name to buy.
      */
-    function registerName(string _newName) public {
+    function registerName(address _plyAddr, string memory _newName) public {
         bytes32 _name = _newName.nameFilter();
 
-        address _plyAddr = msg.sender;
-
-        uint256 _plyID = addr2ply[_plyAddr];
+        uint256 _plyID = addr2plyID[_plyAddr];
         require(_plyID != 0, "Player doesn't exist!");
 
         Player storage _player = players[_plyID];
@@ -179,7 +178,7 @@ contract Banker {
      * @return The name of the player
      */
     function getName(address _plyAddr) public view returns (bytes32) {
-        uint256 _plyID = addr2plyID;
+        uint256 _plyID = addr2plyID[_plyAddr];
         require(_plyID > 0, "Player doesn't exist!");
 
         return players[_plyID].name;
