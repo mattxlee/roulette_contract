@@ -10,11 +10,14 @@
 pragma solidity ^0.5.0;
 
 import "./SafeMath.sol";
+import "./Rou.sol";
 import "./NameFilter.sol";
 
 /// Main contract
 contract Banker {
     using SafeMath for uint256;
+    using Rou for uint256;
+
     using NameFilter for string;
 
     struct Game {
@@ -191,15 +194,6 @@ contract Banker {
     function setMaxBetEth(uint256 _numOfEth) public ownerOnly {
         require(_numOfEth <= eth1.mul(10) && _numOfEth >= 1e18 / 100, "The amount of max bet is out of range!");
         maxBetEth = _numOfEth;
-    }
-
-    /**
-     * @dev This function will convert the amount of chips to eth value
-     * @param _rou The amount of chips
-     * @return The value of eth
-     */
-    function convertRouToEth(uint256 _rou) private pure returns (uint256) {
-        return _rou.mul(rou1);
     }
 
     /**
@@ -486,9 +480,9 @@ contract Banker {
         Bet storage _bet = bets[_magicNumber];
         require(_bet.player == address(0), "The slot is not empty.");
 
-        // Throw if there are not enough Eth are provided by customer.
+        // Throw if there are not enough eth are provided by customer.
         uint256 _betRou = calcBetRou(_betData);
-        uint256 _betEth = convertRouToEth(_betRou);
+        uint256 _betEth = _betRou.toEth();
         uint256 _eth = msg.value;
 
         require(_eth >= _betEth, "There are not enough eth are provided by customer.");
@@ -550,7 +544,7 @@ contract Banker {
         uint256 _winRou = calcWinRouOnNumber(_bet.betData, _dice);
         uint256 _winEth = 0;
         if (_winRou > 0) {
-            _winEth = convertRouToEth(_winRou);
+            _winEth = _winRou.toEth();
             if (address(this).balance < _winEth) {
                 emit BetCannotBeRevealed(_magicNumber, RevealFailStatus.InsufficientContractBalance);
                 return;
