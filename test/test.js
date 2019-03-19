@@ -99,7 +99,7 @@ contract("Banker", async accounts => {
     it("Initialize max bet with normal player account should fail.", async () => {
         const banker = await Banker.deployed();
         await truffleAssert.reverts(
-            banker.setMaxBetWei(eth1, { from: playerAddr }),
+            banker.setMaxBetEth(eth1, { from: playerAddr }),
             "Only owner can call this function."
         );
     });
@@ -107,7 +107,7 @@ contract("Banker", async accounts => {
     it("Initialize max bet with a very big number should fail.", async () => {
         const banker = await Banker.deployed();
         await truffleAssert.reverts(
-            banker.setMaxBetWei(eth1.mul(bigNum(20))),
+            banker.setMaxBetEth(eth1.mul(bigNum(20))),
             "The amount of max bet is out of range!"
         );
     });
@@ -115,19 +115,19 @@ contract("Banker", async accounts => {
     it("Initialize max bet with a very small number should fail.", async () => {
         const banker = await Banker.deployed();
         await truffleAssert.reverts(
-            banker.setMaxBetWei(eth1.div(bigNum(200))),
+            banker.setMaxBetEth(eth1.div(bigNum(200))),
             "The amount of max bet is out of range!"
         );
     });
 
     it("Initialize max bet to 1 eth.", async () => {
         const banker = await Banker.deployed();
-        await truffleAssert.passes(banker.setMaxBetWei(eth1, { from: ownerAddr }));
+        await truffleAssert.passes(banker.setMaxBetEth(eth1, { from: ownerAddr }));
     });
 
     it("Verify max bet with 1 eth.", async () => {
         const banker = await Banker.deployed();
-        const val = await banker.maxBetWei.call();
+        const val = await banker.maxBetEth.call();
         assert.isTrue(val.eq(eth1), "Max bet is not 1 eth!");
     });
 

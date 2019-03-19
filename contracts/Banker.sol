@@ -42,7 +42,7 @@ contract Banker {
     // This struct will store bet related values
     struct Bet {
         address payable player;
-        uint256 transferredAmount; // For refund.
+        uint256 betEth;
         bytes32 betData;
         uint256 placedOnBlock;
         uint256 lastRevealBlock;
@@ -60,8 +60,8 @@ contract Banker {
     // Banker is the account to generate random number, so it is the key account to verify the signature
     address public banker;
 
-    // 0~maxBetWei is the range for the amount of placed bet.
-    uint256 public maxBetWei;
+    // maxBetEth is the range for the amount of placed bet.
+    uint256 public maxBetEth;
 
     // odds for roulette game
     mapping (uint256 => uint256) odds;
@@ -71,13 +71,13 @@ contract Banker {
 
     /**
      * @dev Emit on a new bet is placed
-     * @param transferredAmount Represent how many eth are transferred
+     * @param betEth The amount of eth
      * @param magicNumber The hash value of the random number
      * @param betData Bet details
      * @param lastRevealBlock The bet should be revealed before this block or the bet will never be revealed
      */
     event BetIsPlaced(
-        uint256 transferredAmount,
+        uint256 betEth,
         uint256 magicNumber,
         bytes32 betData,
         uint256 lastRevealBlock
@@ -105,7 +105,7 @@ contract Banker {
     }
 
     /**
-     * @dev Constructor will initialize owner, maxBetWei and odds
+     * @dev Constructor will initialize owner, maxBetEth and odds
      */
     constructor() public {
         owner = msg.sender;
@@ -113,7 +113,7 @@ contract Banker {
         gameID = 1;
         lastPlyID = 1;
 
-        maxBetWei = eth1 / 10;
+        maxBetEth = eth1 / 10;
 
         // Initialize odds.
         odds[1] = 35;
@@ -141,15 +141,15 @@ contract Banker {
 
     /**
      * @dev Withdraw eth to owner account
-     * @param _wei The amount of eth to withdraw
+     * @param _eth The amount of eth to withdraw
      */
-    function withdrawToOwner(uint256 _wei) public ownerOnly {
+    function withdrawToOwner(uint256 _eth) public ownerOnly {
         require(
-            address(this).balance >= _wei,
+            address(this).balance >= _eth,
             "The value of this withdrawal is invalid."
         );
 
-        owner.transfer(_wei);
+        owner.transfer(_eth);
     }
 
     /**
@@ -185,21 +185,21 @@ contract Banker {
     }
 
     /**
-     * @dev Set the value of max bet wei
-     * @param _numOfWei How many you want to set as the max bet wei
+     * @dev Set the value of max bet eth
+     * @param _numOfEth How many you want to set as the max bet eth
      */
-    function setMaxBetWei(uint256 _numOfWei) public ownerOnly {
-        require(_numOfWei <= eth1.mul(10) && _numOfWei >= 1e18 / 100, "The amount of max bet is out of range!");
-        maxBetWei = _numOfWei;
+    function setMaxBetEth(uint256 _numOfEth) public ownerOnly {
+        require(_numOfEth <= eth1.mul(10) && _numOfEth >= 1e18 / 100, "The amount of max bet is out of range!");
+        maxBetEth = _numOfEth;
     }
 
     /**
      * @dev This function will convert the amount of chips to eth value
-     * @param _amount The amount of chips
+     * @param _rou The amount of chips
      * @return The value of eth
      */
-    function convertAmountToWei(uint256 _amount) private pure returns (uint256) {
-        return _amount.mul(rou1);
+    function convertRouToEth(uint256 _rou) private pure returns (uint256) {
+        return _rou.mul(rou1);
     }
 
     /**
@@ -207,22 +207,22 @@ contract Banker {
      * @param _betData The data of bet details
      * @return Total amount value are calculated
      */
-    function calcBetAmount(bytes32 _betData) private pure returns (uint256) {
+    function calcBetRou(bytes32 _betData) private pure returns (uint256) {
         uint256 _numOfBets = uint8(_betData[0]);
         require(_numOfBets > 0 && _numOfBets <= 15, "Invalid number value of bets.");
 
         uint256 _p = 1;
-        uint256 _betAmount = 0;
+        uint256 _betRou = 0;
 
         for (uint256 _dataIndex = 0; _dataIndex < _numOfBets; ++_dataIndex) {
-            uint256 _amount = uint8(_betData[_p++]);
+            uint256 _rou = uint8(_betData[_p++]);
             require(
-                _amount == 100 || _amount == 50 || _amount == 20 || _amount == 10 ||
-                    _amount == 5 || _amount == 2 || _amount == 1,
-                "Invalid bet amount."
+                _rou == 100 || _rou == 50 || _rou == 20 || _rou == 10 ||
+                    _rou == 5 || _rou == 2 || _rou == 1,
+                "Invalid bet rou."
             );
 
-            _betAmount = _betAmount.add(_amount);
+            _betRou = _betRou.add(_rou);
 
             // Skip numbers.
             uint256 _numOfNumsOrIndex = uint8(_betData[_p++]);
@@ -236,7 +236,7 @@ contract Banker {
             //       there is no number follows. So we do not skip any byte in this case.
         }
 
-        return _betAmount;
+        return _betRou;
     }
 
     /**
@@ -245,23 +245,23 @@ contract Banker {
      * @param _dice The result
      * @return Amount of chips should win
      */
-    function calcWinAmountOnNumber(bytes32 _betData, uint256 _dice) private view returns (uint256) {
+    function calcWinRouOnNumber(bytes32 _betData, uint256 _dice) private view returns (uint256) {
         uint8 _numOfBets = uint8(_betData[0]);
         require(_numOfBets <= 15, "Too many bets.");
 
         // Reading index of betData.
         uint256 _pData = 1;
-        uint256 _winAmount = 0;
+        uint256 _winRou = 0;
 
         // Loop every bet.
         for (uint256 _betIndex = 0; _betIndex < _numOfBets; ++_betIndex) {
             require(_pData < 32, "Out of betData's range.");
 
             // Now read the bet amount (in ROU).
-            uint256 _amount = uint8(_betData[_pData++]);
+            uint256 _rou = uint8(_betData[_pData++]);
             require(
-                _amount == 100 || _amount == 50 || _amount == 20 || _amount == 10 ||
-                    _amount == 5 || _amount == 2 || _amount == 1,
+                _rou == 100 || _rou == 50 || _rou == 20 || _rou == 10 ||
+                    _rou == 5 || _rou == 2 || _rou == 1,
                 "Invalid bet amount."
             );
 
@@ -281,7 +281,7 @@ contract Banker {
                     if (!_hit && _number == _dice) {
                         _hit = true;
                         // Increase win amount.
-                        _winAmount = _winAmount.add((odds[_numOfNumsOrIndex] + 1).mul(_amount));
+                        _winRou = _winRou.add((odds[_numOfNumsOrIndex] + 1).mul(_rou));
                     }
                 }
             } else {
@@ -420,12 +420,12 @@ contract Banker {
                 }
 
                 if (_numOfNums > 0) {
-                    _winAmount = _winAmount.add((odds[_numOfNums] + 1).mul(_amount));
+                    _winRou = _winRou.add((odds[_numOfNums] + 1).mul(_rou));
                 }
             }
         }
 
-        return _winAmount;
+        return _winRou;
     }
 
     /**
@@ -433,15 +433,15 @@ contract Banker {
      * @param _betData The bet details
      * @return The max amount of chips we will win
      */
-    function calcMaxWinAmount(bytes32 _betData) private view returns (uint256) {
-        uint256 _maxWinAmount = 0;
+    function calcMaxWinRou(bytes32 _betData) private view returns (uint256) {
+        uint256 _maxWinRou = 0;
         for (uint256 _guessWinNumber = 0; _guessWinNumber <= 37; ++_guessWinNumber) {
-            uint256 _amount = calcWinAmountOnNumber(_betData, _guessWinNumber);
-            if (_amount > _maxWinAmount) {
-                _maxWinAmount = _amount;
+            uint256 _rou = calcWinRouOnNumber(_betData, _guessWinNumber);
+            if (_rou > _maxWinRou) {
+                _maxWinRou = _rou;
             }
         }
-        return _maxWinAmount;
+        return _maxWinRou;
     }
 
     /**
@@ -451,7 +451,7 @@ contract Banker {
     function clearBet(uint256 _magicNumber) private {
         Bet storage _bet = bets[_magicNumber];
         _bet.player = address(0);
-        _bet.transferredAmount = 0;
+        _bet.betEth = 0;
         _bet.betData = bytes32(0);
         _bet.placedOnBlock = 0;
         _bet.lastRevealBlock = 0;
@@ -486,13 +486,13 @@ contract Banker {
         Bet storage _bet = bets[_magicNumber];
         require(_bet.player == address(0), "The slot is not empty.");
 
-        // Throw if there are not enough wei are provided by customer.
-        uint256 _betAmount = calcBetAmount(_betData);
-        uint256 _betWei = convertAmountToWei(_betAmount);
-        uint256 _wei = msg.value;
+        // Throw if there are not enough Eth are provided by customer.
+        uint256 _betRou = calcBetRou(_betData);
+        uint256 _betEth = convertRouToEth(_betRou);
+        uint256 _eth = msg.value;
 
-        require(_wei >= _betWei, "There are not enough wei are provided by customer.");
-        require(_betWei <= maxBetWei, "Exceed the maximum.");
+        require(_eth >= _betEth, "There are not enough eth are provided by customer.");
+        require(_betEth <= maxBetEth, "Exceed the maximum.");
 
         // Check the signature.
         bytes memory _prefix = "\x19Ethereum Signed Message:\n32";
@@ -502,13 +502,13 @@ contract Banker {
 
         // Prepare and save bet record.
         _bet.player = msg.sender;
-        _bet.transferredAmount = _wei;
+        _bet.betEth = _betEth;
         _bet.betData = _betData;
         _bet.placedOnBlock = _currBlock;
         _bet.lastRevealBlock = _lastRevealBlock;
         bets[_magicNumber] = _bet;
 
-        emit BetIsPlaced(_wei, _magicNumber, _betData, _lastRevealBlock);
+        emit BetIsPlaced(_eth, _magicNumber, _betData, _lastRevealBlock);
     }
 
     /**
@@ -547,17 +547,17 @@ contract Banker {
         uint256 _dice = uint256(_betHash) % 38;
 
         // Calculate win amount.
-        uint256 _winAmount = calcWinAmountOnNumber(_bet.betData, _dice);
-        uint256 _winWei = 0;
-        if (_winAmount > 0) {
-            _winWei = convertAmountToWei(_winAmount);
-            if (address(this).balance < _winWei) {
+        uint256 _winRou = calcWinRouOnNumber(_bet.betData, _dice);
+        uint256 _winEth = 0;
+        if (_winRou > 0) {
+            _winEth = convertRouToEth(_winRou);
+            if (address(this).balance < _winEth) {
                 emit BetCannotBeRevealed(_magicNumber, RevealFailStatus.InsufficientContractBalance);
                 return;
             }
-            _betPlayer.transfer(_winWei);
+            _betPlayer.transfer(_winEth);
         }
-        emit BetIsRevealed(_magicNumber, _dice, _winAmount);
+        emit BetIsRevealed(_magicNumber, _dice, _winRou);
         clearBet(_magicNumber);
     }
 
@@ -572,7 +572,7 @@ contract Banker {
         require(_playerAddr != address(0), "The bet slot is empty.");
         require(block.number > _bet.lastRevealBlock, "The bet is still in play.");
 
-        _playerAddr.transfer(_bet.transferredAmount);
+        _playerAddr.transfer(_bet.betEth);
 
         // Clear the slot.
         clearBet(_magicNumber);
