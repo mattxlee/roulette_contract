@@ -154,9 +154,11 @@ contract Banker {
 
     /**
      * @dev If the player has enough keys then he is able to buy a name. (Only 1 name for each player)
-     * @param _name A new player name to buy.
+     * @param _newName A new player name to buy.
      */
-    function buyName(bytes32 _name) public {
+    function registerName(string _newName) public {
+        bytes32 _name = _newName.nameFilter();
+
         address _plyAddr = msg.sender;
 
         uint256 _plyID = addr2ply[_plyAddr];
