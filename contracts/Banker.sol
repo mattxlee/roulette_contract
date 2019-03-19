@@ -8,11 +8,14 @@
 //
 
 pragma solidity ^0.5.0;
+
 import "./SafeMath.sol";
+import "./NameFilter.sol";
 
 /// Main contract
 contract Banker {
     using SafeMath for uint256;
+    using NameFilter for string;
 
     struct Game {
         uint256 poolEth; // Will be added from last game
