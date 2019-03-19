@@ -150,6 +150,37 @@ contract Banker {
     }
 
     /**
+     * @dev If the player has enough keys then he is able to buy a name. (Only 1 name for each player)
+     * @param _name A new player name to buy.
+     */
+    function buyName(bytes32 _name) public {
+        address _plyAddr = msg.sender;
+
+        uint256 _plyID = addr2ply[_plyAddr];
+        require(_plyID != 0, "Player doesn't exist!");
+
+        Player storage _player = players[_plyID];
+        require(_player.name != 0, "You already have a name!");
+
+        require(_player.keys > 100, "Not enough keys to buy a name!");
+        require(name2plyID[_name] == 0, "The name does already exist!");
+
+        _player.name = _name;
+        name2plyID[_name] = _plyID;
+    }
+
+    /**
+     * @dev Return the name of player with given address
+     * @return The name of the player
+     */
+    function getName(address _plyAddr) public view returns (bytes32) {
+        uint256 _plyID = addr2plyID;
+        require(_plyID > 0, "Player doesn't exist!");
+
+        return players[_plyID].name;
+    }
+
+    /**
      * @dev Set the value of max bet wei
      * @param _numOfWei How many you want to set as the max bet wei
      */
