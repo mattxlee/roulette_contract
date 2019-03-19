@@ -24,17 +24,17 @@ contract Banker {
 
     struct Player {
         address payable addr;
+        bytes32 name;
         uint256 affID;
         uint256 deadEth;
         uint256 keys;
     }
 
-    // PlayerID => Player
+    // Player
     mapping (uint256 => Player) players;
-    uint256 lastPlayerID;
-
-    // Name => PlayerID
-    mapping (bytes32 => uint256) names;
+    mapping (bytes32 => uint256) name2plyID;
+    mapping (address => uint256) addr2plyID;
+    uint256 lastPlyID;
 
     // This struct will store bet related values
     struct Bet {
@@ -108,7 +108,7 @@ contract Banker {
         owner = msg.sender;
 
         gameID = 1;
-        lastPlayerID = 1;
+        lastPlyID = 1;
 
         maxBetWei = eth1 / 10;
 
