@@ -147,7 +147,10 @@ contract Banker {
         uint256 _ethOfKeys = _game.keys.eth();
         uint256 _newKeys = _ethOfKeys.keysRec(_eth);
 
-        uint256 _ppk = _game.keys.ppk(_game.poolEth);
+        uint256 _ppk = 0;
+        if (_game.keys > 0) {
+            _ppk = _game.keys.ppk(_game.poolEth);
+        }
 
         Player storage _player = players[_plyID];
         _player.deadEth = _player.deadEth.add(_newKeys.profit(_ppk));
