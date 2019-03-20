@@ -77,12 +77,12 @@ library KeyCalc {
     }
 
     /**
-     * @dev calculates the profit of each key
+     * @dev calculates the profit per key
      * @param _keys number of keys those you total have
      * @param _eth how much eth in contract
      * @return returns the average value of each key
      */
-    function average(uint256 _keys, uint256 _eth)
+    function ppk(uint256 _keys, uint256 _eth)
         internal
         pure
         returns(uint256)

@@ -553,7 +553,7 @@ contract Banker {
             uint256 _buyKeysEth = _loseEth.mul(90) / 100 / 38;
 
             Game storage _game = games[gameID];
-            uint256 _ppk = _game.poolEth.keys().average(_game.poolEth);
+            uint256 _ppk = _game.poolEth.keys().ppk(_game.poolEth);
 
             uint256 _buyKeys = _game.poolEth.keysRec(_buyKeysEth);
             uint256 _deadEth = _buyKeys.profit(_ppk);
@@ -569,14 +569,14 @@ contract Banker {
             if (_player.affID > 0) {
                 // 3% keys mint for player
                 uint256 _extPlayerEth = _lostEth.mul(3) / 100 / 38;
-                _ppk = _game.poolEth.keys().average(_game.poolEth);
+                _ppk = _game.poolEth.keys().ppk(_game.poolEth);
                 _extKeysForPlayer = _game.poolEth.keysRec(_extPlayerEth);
                 _wallet.keys = _wallet.keys.add(_extKeysForPlayer);
                 _game.poolEth = _game.poolEth.add(_extPlayerEth);
 
                 // 7% keys mint for affiliate
                 uint256 _affEth = _loseEth.mul(7) / 100 / 38;
-                _ppk = _game.poolEth.keys().average(_game.poolEth);
+                _ppk = _game.poolEth.keys().ppk(_game.poolEth);
                 _affKeys = _game.poolEth.keysRec(_affEth);
 
                 Wallet storage _affWallet = _game.wallets[_affID];
