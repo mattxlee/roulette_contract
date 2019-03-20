@@ -12,36 +12,40 @@ pragma solidity ^0.5.0;
 import "./SafeMath.sol";
 import "./Rou.sol";
 import "./KeyCalc.sol";
-import "./NameFilter.sol";
 
-/// Main contract
+//==_===================================================================================================================
+// |_) _.._ |  _ ._
+// |_)(_|| ||<(/_|
+//======================================================================================================================
 contract Banker {
     using SafeMath for uint256;
     using Rou for uint256;
-
-    using NameFilter for string;
+    using KeyCalc for uint256;
 
     struct Player {
         address payable addr;
-        bytes32 name;
         uint256 affID;
+        uint256 deadEth;
+
+        // How many games the player involved
+        uint256 firstGID;
+        mapping (uint256 => uint256) nextGID;
     }
 
-    struct PlayerWallet {
-        uint256 deadEth;
+    struct Wallet {
         uint256 keys;
     }
 
     // Player
     mapping (uint256 => Player) players;
-    mapping (bytes32 => uint256) name2plyID;
     mapping (address => uint256) addr2plyID;
     uint256 lastPlyID;
 
     struct Game {
         uint256 poolEth; // Will be added from last game
         uint256 jackpotEth; // Each jackpot will drain all
-        mapping (uint256 => PlayerWallet) wallets; // Player wallets (plyID as index)
+        uint256 keys; // Total keys are sold
+        mapping (uint256 => Wallet) wallets; // Player wallets (plyID as index)
     }
 
     mapping (uint256 => Game) games;
@@ -112,6 +116,88 @@ contract Banker {
         _;
     }
 
+//==_===================================================================================================================
+// |_)._o   _._|_ _  ._ _  __|_|_  _  _| _
+// |  | |\/(_| |_(/_ | | |(/_|_| |(_)(_|_>
+
+    /**
+     * @dev Register an address as a player, if the player already exists, then returns the existing ID
+     * @param _plyAddr Address of the player
+     * @return The player ID which is registered from our storage
+     */
+    function registerPlayer(address _plyAddr) private returns (uint256) {
+        // We should ensure the player is registered
+        uint256 _plyID = addr2plyID[_plyAddr];
+        if (_plyID == 0) {
+            addr2plyID[_plyAddr] = lastPlyID;
+            ++lastPlyID;
+        }
+        return _plyID;
+    }
+
+    /**
+     * @dev Core function for a player buy keys
+     * @param _plyID Player ID
+     * @param _eth Amount of eth the player will spend
+     */
+    function buyKeys(uint256 _plyID, uint256 _eth) private {
+        Game storage _game = games[gameID];
+        Wallet storage _wallet = _game.wallets[_plyID];
+
+        uint256 _ethOfKeys = _game.keys.eth();
+        uint256 _newKeys = _ethOfKeys.keysRec(_eth);
+
+        uint256 _ppk = _game.keys.ppk(_game.poolEth);
+
+        Player storage _player = players[_plyID];
+        _player.deadEth = _player.deadEth.add(_newKeys.profit(_ppk));
+
+        _game.keys = _game.keys.add(_newKeys);
+        _wallet.keys = _wallet.keys.add(_newKeys);
+
+        // Game ID list adjustment
+        uint256 _GID = _player.firstGID;
+        uint256 _lastGID = 0;
+        while (_GID > 0) {
+            if (_GID == gameID) {
+                // The game ID is already exist from the list
+                return;
+            }
+            _lastGID = _GID;
+            _GID = _player.nextGID[_GID];
+        }
+        if (_lastGID == 0) {
+            _player.firstGID = gameID;
+        } else {
+            _player.nextGID[_lastGID] = gameID;
+        }
+    }
+
+    /**
+     * @dev Distribute dividends to the player and affiliate if he/she exists, also will adjust the pool and jackpot
+     * @param _eth How much eth to buy keys
+     * @param _plyAddr Address of the player
+     */
+    function distributeDividends(uint256 _eth, address _plyAddr) private {
+        uint256 _plyID = addr2plyID[_plyAddr];
+
+        buyKeys(_plyID, _eth.mul(90) / 100);
+        Player storage _player = players[_plyID];
+        if (_player.affID > 0) {
+            buyKeys(_plyID, _eth.mul(2) / 100);
+            buyKeys(_player.affID, _eth.mul(8) / 100);
+        }
+
+        Game storage _game = games[gameID];
+        uint256 _inc = _eth / 38 / 2;
+        _game.poolEth = _game.poolEth.add(_inc);
+        _game.jackpotEth = _game.jackpotEth.add(_inc);
+    }
+
+//==_===================================================================================================================
+// |_) |_ |o _ ._ _  __|_|_  _  _| _
+// ||_||_)||(_ | | |(/_|_| |(_)(_|_>
+
     /**
      * @dev Constructor will initialize owner, maxBetEth and odds
      */
@@ -146,38 +232,6 @@ contract Banker {
      * @dev Deposit eth to contract
      */
     function deposit() public payable {}
-
-    /**
-     * @dev If the player has enough keys then he is able to buy a name. (Only 1 name for each player)
-     * @param _plyAddr Address of the player
-     * @param _newName A new player name to buy.
-     */
-    function registerName(address _plyAddr, string memory _newName) public {
-        bytes32 _name = _newName.nameFilter();
-
-        uint256 _plyID = addr2plyID[_plyAddr];
-        require(_plyID != 0, "Player doesn't exist!");
-
-        Player storage _player = players[_plyID];
-        require(_player.name != 0, "You already have a name!");
-
-        require(_player.keys > 100, "Not enough keys to buy a name!");
-        require(name2plyID[_name] == 0, "The name does already exist!");
-
-        _player.name = _name;
-        name2plyID[_name] = _plyID;
-    }
-
-    /**
-     * @dev Return the name of player with given address
-     * @return The name of the player
-     */
-    function getName(address _plyAddr) public view returns (bytes32) {
-        uint256 _plyID = addr2plyID[_plyAddr];
-        require(_plyID > 0, "Player doesn't exist!");
-
-        return players[_plyID].name;
-    }
 
     /**
      * @dev Set the value of max bet eth
@@ -493,6 +547,7 @@ contract Banker {
         _bet.placedOnBlock = _currBlock;
         _bet.lastRevealBlock = _lastRevealBlock;
         bets[_magicNumber] = _bet;
+        registerPlayer(_bet.player);
 
         emit BetIsPlaced(_eth, _magicNumber, _betData, _lastRevealBlock);
     }
@@ -509,12 +564,12 @@ contract Banker {
         Bet storage _bet = bets[_magicNumber];
 
         // Save to local variables.
-        address payable _betPlayer = _bet.player;
+        address payable _plyAddr = _bet.player;
         uint256 _betPlacedOnBlock = _bet.placedOnBlock;
         uint256 _currBlock = block.number;
 
         require(
-            _betPlayer != address(0),
+            _plyAddr != address(0),
             "The bet slot cannot be empty."
         );
 
@@ -542,65 +597,32 @@ contract Banker {
                 emit BetCannotBeRevealed(_magicNumber, RevealFailStatus.InsufficientContractBalance);
                 return;
             }
-            _betPlayer.transfer(_winEth);
+            _plyAddr.transfer(_winEth);
         }
         emit BetIsRevealed(_magicNumber, _dice, _winRou);
 
         // Calculate how many eth remains to buy keys
-        if (_betPlayer.betEth > _winEth) {
+        if (_bet.betEth > _winEth) {
             // (1/38) * 90% of lose eth will be used to buy keys
-            uint256 _loseEth = _betPlayer.betEth.sub(_winEth);
-            uint256 _buyKeysEth = _loseEth.mul(90) / 100 / 38;
+            uint256 _loseEth = _bet.betEth.sub(_winEth);
+            distributeDividends(_loseEth, _plyAddr);
 
-            Game storage _game = games[gameID];
-            uint256 _ppk = _game.poolEth.keys().ppk(_game.poolEth);
+            // Jackpot should be revealed here, we use _betHash to decide with 0.1% chance
+            uint256 _jackpotHit = uint256(_betHash) % 1000;
+            if (_jackpotHit == 888) {
+                // Jackpot hit, 10% are saved for next round
+                Game storage _game = games[gameID];
+                uint256 _jackpotEth = _game.jackpotEth.mul(90) / 100;
+                _plyAddr.transfer(_jackpotEth);
 
-            uint256 _buyKeys = _game.poolEth.keysRec(_buyKeysEth);
-            uint256 _deadEth = _buyKeys.profit(_ppk);
+                // Calculate how many eth are remain
+                uint256 _jackpotEthRemains = _game.jackpotEth.sub(_jackpotEth);
 
-            // Add eth to player wallet
-            uint256 _plyID = addr2plyID[_betPlayer];
-            Wallet storage _wallet = _game.wallets[_plyID];
-            _wallet.deadEth = _wallet.deadEth.add(_deadEth);
-            _wallet.keys = _wallet.keys.add(_buyKeys);
-
-            // We need to deal with affiliate
-            Player storage _player = players[_plyID];
-            if (_player.affID > 0) {
-                // 3% keys mint for player
-                uint256 _extPlayerEth = _lostEth.mul(3) / 100 / 38;
-                _ppk = _game.poolEth.keys().ppk(_game.poolEth);
-                _extKeysForPlayer = _game.poolEth.keysRec(_extPlayerEth);
-                _wallet.keys = _wallet.keys.add(_extKeysForPlayer);
-                _game.poolEth = _game.poolEth.add(_extPlayerEth);
-
-                // 7% keys mint for affiliate
-                uint256 _affEth = _loseEth.mul(7) / 100 / 38;
-                _ppk = _game.poolEth.keys().ppk(_game.poolEth);
-                _affKeys = _game.poolEth.keysRec(_affEth);
-
-                Wallet storage _affWallet = _game.wallets[_affID];
-                _affWallet.keys = _affWallet.keys.add(_affKeys);
-                _game.poolEth = _game.poolEth.add(_affEth);
+                // We start a new game here
+                ++gameID;
+                _game = games[gameID];
+                _game.jackpotEth = _jackpotEthRemains;
             }
-        }
-
-        // Jackpot should be revealed here, we use _betHash to decide with 0.1% chance
-        uint256 _jackpotHit = _betHask % 1000;
-        if (_jackpotHit == 888) {
-            // Jackpot hit, 10% are saved for next round
-            uint256 _jackpotEth = _game.jackpotEth.mul(90) / 100;
-            _betPlayer.transfer(_jackpotEth);
-
-            // Calculate how many eth are remain
-            uint256 _poolEthRemains = _game.poolEth;
-            uint256 _jackpotEthRemains = _game.jackpotEth.sub(_jackpotEth);
-
-            // We start a new game here
-            ++gameID;
-            Game storage _game = games[gameID];
-            _game.poolEth = _ethRemains;
-            _game.jackpotEth = _jackpotEthRemains;
         }
 
         clearBet(_magicNumber);
@@ -629,24 +651,68 @@ contract Banker {
      * @return Eth left
      */
     function getPlayerEth(address _plyAddr) public view returns (uint256) {
-        // TODO Returns the eth left for the player.
+        uint256 _plyID = addr2plyID[_plyAddr];
+        require(_plyID > 0, "It is not our player yet!");
+
+        Player storage _player = players[_plyID];
+        uint256 _GID = _player.firstGID;
+        uint256 _eth;
+
+        while (_GID > 0) {
+            Game storage _game = games[_GID];
+            uint256 _keys = _game.wallets[_plyID].keys;
+            if (_keys > 0) {
+                uint256 _ppk = _game.keys.ppk(_game.poolEth);
+                _eth = _eth.add(_keys.profit(_ppk));
+            }
+            _GID = _player.nextGID[_GID];
+        }
+
+        _eth = _eth.sub(_player.deadEth);
+        return _eth;
     }
 
     /**
-     * @dev Query how many keys from the player
+     * @dev Query how many keys from the player of current game
      * @param _plyAddr Address of the player
      * @return Keys
      */
-    function getPlayerKeys(address _plyAddr) public view returns (uint256) {
-        // TODO Returns the keys left for the player
+    function getPlayerKeysOnCurrGame(address _plyAddr) public view returns (uint256) {
+        uint256 _plyID = addr2plyID[_plyAddr];
+        require(_plyID > 0, "It is not our player yet!");
+
+        Wallet storage _wallet = games[gameID].wallets[_plyID];
+        return _wallet.keys;
     }
 
     /**
-     * @dev Query how much eth left for team
-     * @return Eth left
+     * @dev Return affiliate ID of the player
+     * @param _plyAddr Address of the player
+     * @return Affiliate ID or 0 means the player has no affiliate
      */
-    function getTeamEth() public view returns (uint256) {
-        // TODO Returns the team eth
+    function getPlayerAffID(address _plyAddr) public view returns (uint256) {
+        uint256 _plyID = addr2plyID[_plyAddr];
+        require(_plyID > 0, "It is not our player yet!");
+
+        return players[_plyID].affID;
+    }
+
+    /**
+     * @dev Get contract balance
+     * @return Balance value in eth
+     */
+    function getBalance() public view returns (uint256) {
+        uint256 _eth = address(this).balance;
+
+        for (uint256 _GID = 1; _GID <= gameID; ++_GID) {
+            Game storage _game = games[_GID];
+            if (_eth <= _game.poolEth) {
+                // Now I have debt, sigh!
+                return 0;
+            }
+            _eth = _eth.sub(games[_GID].poolEth);
+        }
+        return _eth;
     }
 
     /**
@@ -657,8 +723,20 @@ contract Banker {
         address payable _addr = msg.sender;
         if (_addr == owner) {
             // Owner withdrawal
+            uint256 _ethLeft = getBalance();
+            require(_eth <= _ethLeft, "Not enough eth to withdraw to owner!");
+            _addr.transfer(_eth);
         } else {
             // Player or affiliate withdrawal
+            uint256 _plyID = addr2plyID[_addr];
+            require(_plyID > 0, "You are not a player!");
+
+            uint256 _ethLeft = getPlayerEth(_addr);
+            require(_eth <= _ethLeft, "Not enough eth to withdraw to player!");
+            _addr.transfer(_eth);
+
+            Player storage _player = players[_plyID];
+            _player.deadEth = _player.deadEth.add(_eth);
         }
     }
 }
