@@ -65,15 +65,15 @@ library KeyCalc {
     /**
      * @dev calculates how much profit you make by holding these keys
      * @param _keys number of keys are "holding"
-     * @param _profitPerKey the profit of each key currently
+     * @param _ppk the profit of each key currently
      * @return the profit
      */
-    function profit(uint256 _keys, uint256 _profitPerKey)
+    function profit(uint256 _keys, uint256 _ppk)
         internal
         pure
         returns(uint256)
     {
-        return _keys.mul(_profitPerKey) / 1e18;
+        return _keys.mul(_ppk) / 1e18;
     }
 
     /**
