@@ -87,6 +87,7 @@ library KeyCalc {
         pure
         returns(uint256)
     {
+        require(_keys > 0, "_keys is zero!");
         return _eth.mul(1e18) / _keys;
     }
 }
