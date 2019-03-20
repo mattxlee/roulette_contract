@@ -150,19 +150,6 @@ contract("Banker", async accounts => {
         assert.isTrue(balance.eq(eth1.mul(bigNum(10))), "The balance is incorrect!");
     });
 
-    it("Withdraw eth by a player account is not allowed.", async () => {
-        const banker = await Banker.deployed();
-        await truffleAssert.reverts(
-            banker.withdrawToOwner(eth1, { from: playerAddr }),
-            "Only owner can call this function"
-        );
-    });
-
-    it("Withdraw 1 eth to owner account.", async () => {
-        const banker = await Banker.deployed();
-        await truffleAssert.passes(banker.withdrawToOwner(eth1, { from: ownerAddr }));
-    });
-
     let randObj;
     let blockNum;
     let betDataHex;
@@ -222,68 +209,5 @@ contract("Banker", async accounts => {
         const banker = await Banker.deployed();
 
         await truffleAssert.reverts(banker.revealBet(randObj.randNum), "The bet slot cannot be empty.");
-    });
-
-    it("Register a name with '0x' should fail.", async () => {
-        const banker = await Banker.deployed();
-
-        await truffleAssert.reverts(banker.registerName(playerAddr, "0xhello"), "string cannot start with 0x");
-    });
-
-    it("Register a name with '0X' should fail.", async () => {
-        const banker = await Banker.deployed();
-
-        await truffleAssert.reverts(banker.registerName(playerAddr, "0Xhello"), "string cannot start with 0X");
-    });
-
-    it("Register a name start with space should fail.", async () => {
-        const banker = await Banker.deployed();
-
-        await truffleAssert.reverts(
-            banker.registerName(playerAddr, " 0Xhello"),
-            "string cannot start or end with space"
-        );
-    });
-
-    it("Register a name end with space should fail.", async () => {
-        const banker = await Banker.deployed();
-
-        await truffleAssert.reverts(
-            banker.registerName(playerAddr, "0Xhello "),
-            "string cannot start or end with space"
-        );
-    });
-
-    it("Register a name more than 32 characters will fail.", async () => {
-        const banker = await Banker.deployed();
-
-        await truffleAssert.reverts(
-            banker.registerName(playerAddr, "This a name that length is more than 32 bytes."),
-            "string must be between 1 and 32 characters"
-        );
-    });
-
-    it("Register a name that contains only numbers will fail.", async () => {
-        const banker = await Banker.deployed();
-
-        await truffleAssert.reverts(banker.registerName(playerAddr, "12345678"), "string cannot be only numbers");
-    });
-
-    it("Register a name that contains invalid characters will fail.", async () => {
-        const banker = await Banker.deployed();
-
-        await truffleAssert.reverts(
-            banker.registerName(playerAddr, "invalid!name%"),
-            "string contains invalid characters"
-        );
-    });
-
-    it("Register a name with consecutive spaces will fail.", async () => {
-        const banker = await Banker.deployed();
-
-        await truffleAssert.reverts(
-            banker.registerName(playerAddr, "hello  world"),
-            "string cannot contain consecutive spaces"
-        );
     });
 });
