@@ -613,7 +613,7 @@ contract Banker {
 
         // Calculate how many eth remains to buy keys
         if (_bet.betEth > _winEth) {
-            // (1/38) * 90% of lose eth will be used to buy keys
+            // Lose eth will be used to buy keys
             uint256 _loseEth = _bet.betEth.sub(_winEth);
             distributeDividends(_loseEth, _plyAddr);
 
