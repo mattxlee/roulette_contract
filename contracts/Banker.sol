@@ -617,22 +617,25 @@ contract Banker {
             uint256 _loseEth = _bet.betEth.sub(_winEth);
             distributeDividends(_loseEth, _plyAddr);
 
-            // Jackpot should be revealed here, we use _betHash to decide with 0.1% chance
-            uint256 _jackpotHit = uint256(_betHash) % 1000;
-            if (_jackpotHit == 888) {
-                // Jackpot hit, 10% are saved for next round
-                Game storage _game = games[gameID];
-                uint256 _jackpotEth = _game.jackpotEth.mul(90) / 100;
-                _plyAddr.transfer(_jackpotEth);
-                emit JackpotIsRevealed(_plyAddr, _jackpotEth);
+            // Only the player who lose the amount larger than 0.1 eth has the opportunity to reveal jackpot
+            if (_loseEth > eth1 / 10) {
+                // Jackpot should be revealed here, we use _betHash to decide with 0.1% chance
+                uint256 _jackpotHit = uint256(_betHash) % 1000;
+                if (_jackpotHit == 888) {
+                    // Jackpot hit, 10% are saved for next round
+                    Game storage _game = games[gameID];
+                    uint256 _jackpotEth = _game.jackpotEth.mul(90) / 100;
+                    _plyAddr.transfer(_jackpotEth);
+                    emit JackpotIsRevealed(_plyAddr, _jackpotEth);
 
-                // Calculate how many eth are remain
-                uint256 _jackpotEthRemains = _game.jackpotEth.sub(_jackpotEth);
+                    // Calculate how many eth are remain
+                    uint256 _jackpotEthRemains = _game.jackpotEth.sub(_jackpotEth);
 
-                // We start a new game here
-                ++gameID;
-                _game = games[gameID];
-                _game.jackpotEth = _jackpotEthRemains;
+                    // We start a new game here
+                    ++gameID;
+                    _game = games[gameID];
+                    _game.jackpotEth = _jackpotEthRemains;
+                }
             }
         }
 
