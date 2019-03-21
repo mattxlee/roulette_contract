@@ -236,10 +236,7 @@ contract("Banker", async accounts => {
             // Calculate how many eth we earned
             const dividendsEth = loseEth.div(bigNum(38));
             const calcBalance = balance.sub(winEth).sub(dividendsEth);
-            assert.isTrue(
-                currBalance.eq(calcBalance),
-                "The balance is added with the money we earned is wrong!"
-            );
+            assert.isTrue(currBalance.eq(calcBalance), "The balance is added with the money we earned is wrong!");
 
             assert.isTrue(keys.gt(bigNum(0)), "The keys remain in player wallet should not be zero!");
             assert.isTrue(jackpotEth.gt(bigNum(0)), "Jackpot balance should not be zero!");
@@ -253,5 +250,61 @@ contract("Banker", async accounts => {
         const banker = await Banker.deployed();
 
         await truffleAssert.reverts(banker.revealBet(randObj.randNum), "The bet slot cannot be empty.");
+    });
+
+    it("Place a bet that will expire on next block should fail.", async () => {
+        const banker = await Banker.deployed();
+
+        const expireOnBlockNum = web3.utils.toBN(await web3.eth.getBlockNumber());
+        const randObj = await generateRandomNumberAndSign(28, expireOnBlockNum, bankerAddr);
+        const betDataHex = makeRandomBetData();
+
+        await truffleAssert.reverts(
+            banker.placeBet(randObj.magicHex, expireOnBlockNum, betDataHex, randObj.signR, randObj.signS, {
+                from: playerAddr,
+                value: eth1
+            }),
+            "Invalid number of lastRevealBlock."
+        );
+    });
+
+    it("Place a bet that will expire after 2 blocks.", async () => {
+        const banker = await Banker.deployed();
+
+        expireOnBlockNum = web3.utils.toBN(await web3.eth.getBlockNumber()).add(web3.utils.toBN(2));
+        randObj = await generateRandomNumberAndSign(28, expireOnBlockNum, bankerAddr);
+        betDataHex = makeRandomBetData();
+
+        await truffleAssert.passes(
+            banker.placeBet(randObj.magicHex, expireOnBlockNum, betDataHex, randObj.signR, randObj.signS, {
+                from: playerAddr,
+                value: eth1
+            })
+        );
+    });
+
+    it("Waiting for previous bet expires.", async () => {
+        let currBlockNum = web3.utils.toBN(await web3.eth.getBlockNumber());
+        while (currBlockNum.lte(expireOnBlockNum)) {
+            await sleep(1000);
+            currBlockNum = web3.utils.toBN(await web3.eth.getBlockNumber());
+        }
+    });
+
+    it("Now reveal previous bet should fail.", async () => {
+        const banker = await Banker.deployed();
+
+        await truffleAssert.reverts(banker.revealBet(randObj.randNum), "The bet is timeout.");
+    });
+
+    it("Refund eth to player.", async () => {
+        const banker = await Banker.deployed();
+
+        const balance = web3.utils.toBN(await web3.eth.getBalance(playerAddr));
+
+        await truffleAssert.passes(banker.refundBet(randObj.magicHex));
+
+        const balanceAfter = web3.utils.toBN(await web3.eth.getBalance(playerAddr));
+        assert.isTrue(balanceAfter.sub(balance).eq(eth1), "The amount of return eth is wrong!");
     });
 });
