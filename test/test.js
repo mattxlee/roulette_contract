@@ -156,6 +156,12 @@ contract("Banker", async accounts => {
         assert.isTrue(balance.eq(eth1.mul(bigNum(10))), "The balance is incorrect!");
     });
 
+    it("The balance of the owner on the contract should be 10 eth.", async () => {
+        const banker = await Banker.deployed();
+        const balance = web3.utils.toBN(await banker.getBalance.call());
+        assert.isTrue(balance.eq(eth1.mul(bigNum(10))), "The balance of owner should be 10 eth.");
+    });
+
     let randObj;
     let blockNum;
     let betDataHex;
