@@ -307,4 +307,40 @@ contract("Banker", async accounts => {
         const balanceAfter = web3.utils.toBN(await web3.eth.getBalance(playerAddr));
         assert.isTrue(balanceAfter.sub(balance).eq(eth1), "The amount of return eth is wrong!");
     });
+
+    const bets = [];
+
+    it("Generate 10 bets and place them all.", async () => {
+        const banker = await Banker.deployed();
+
+        for (let i = 0; i < 10; ++i) {
+            const bet = {};
+            bet.expireOnBlockNum = web3.utils.toBN(await web3.eth.getBlockNumber()).add(web3.utils.toBN(100));
+            bet.randObj = await generateRandomNumberAndSign(28, bet.expireOnBlockNum, bankerAddr);
+            bet.betDataHex = makeRandomBetData();
+            bets.push(bet);
+
+            await truffleAssert.passes(
+                banker.placeBet(
+                    bet.randObj.magicHex,
+                    bet.expireOnBlockNum,
+                    bet.betDataHex,
+                    bet.randObj.signR,
+                    bet.randObj.signS,
+                    {
+                        from: playerAddr,
+                        value: eth1
+                    }
+                )
+            );
+        }
+    });
+
+    it("Reveal them all.", async () => {
+        const banker = await Banker.deployed();
+
+        for (let i = 0; i < bets.length; ++i) {
+            await truffleAssert.passes(banker.revealBet(bets[i].randObj.randNum));
+        }
+    });
 });
