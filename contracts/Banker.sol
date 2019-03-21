@@ -727,6 +727,15 @@ contract Banker {
     }
 
     /**
+     * @dev Returns the balance of current jackpot
+     * @return Balance in eth
+     */
+    function getJackpotBalance() public view returns (uint256) {
+        Game storage _game = games[gameID];
+        return _game.jackpotEth;
+    }
+
+    /**
      * @dev Withdraw eth
      * @param _eth Amount of eth to withdraw
      */
