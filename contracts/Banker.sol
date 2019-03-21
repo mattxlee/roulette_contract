@@ -106,9 +106,16 @@ contract Banker {
      * @dev Emit on a bet is revealed
      * @param magicNumber The hash value of the random number
      * @param dice The result number has been revealed eventually
-     * @param winAmount The amount of the contract has paid to player.
+     * @param winAmount The amount of the contract has paid to player
      */
     event BetIsRevealed(uint256 magicNumber, uint256 dice, uint256 winAmount);
+
+    /**
+     * @dev Emit on current jackpot is revealed
+     * @param winnerAddr Address of the winner
+     * @param eth The amount of the reward in eth
+     */
+    event JackpotIsRevealed(address winnerAddr, uint256 eth);
 
     // Ensure the function is called by owner
     modifier ownerOnly() {
@@ -617,6 +624,7 @@ contract Banker {
                 Game storage _game = games[gameID];
                 uint256 _jackpotEth = _game.jackpotEth.mul(90) / 100;
                 _plyAddr.transfer(_jackpotEth);
+                emit JackpotIsRevealed(_plyAddr, _jackpotEth);
 
                 // Calculate how many eth are remain
                 uint256 _jackpotEthRemains = _game.jackpotEth.sub(_jackpotEth);
