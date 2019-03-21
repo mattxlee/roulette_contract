@@ -64,11 +64,11 @@ const makeRandomBetData = () => {
     return betDataHex;
 };
 
-const sleep = secs => {
+const sleep = msecs => {
     return new Promise(resolve => {
         setTimeout(() => {
             resolve();
-        }, secs);
+        }, msecs);
     });
 };
 
