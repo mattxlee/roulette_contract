@@ -138,6 +138,12 @@ contract("Banker", async accounts => {
         assert.isTrue(balance.eq(bigNum(0)), "The balance of an initialized contract should be zero!");
     });
 
+    it("The balance of the owner on an initialized contract should be zero.", async () => {
+        const banker = await Banker.deployed();
+        const balance = web3.utils.toBN(await banker.getBalance.call());
+        assert.isTrue(balance.eq(web3.utils.toBN(0)), "The balance of owner should be zero.");
+    });
+
     it("Deposit 10 eth to contract with player account.", async () => {
         const banker = await Banker.deployed();
         await truffleAssert.passes(banker.deposit({ from: playerAddr, value: eth1.mul(bigNum(10)) }));
