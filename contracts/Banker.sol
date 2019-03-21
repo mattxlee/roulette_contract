@@ -527,10 +527,7 @@ contract Banker {
         payable
     {
         uint256 _currBlock = block.number;
-        require(
-            _currBlock <= _lastRevealBlock,
-            "Timeout of current bet to place."
-        );
+        require(_currBlock < _lastRevealBlock, "Invalid number of lastRevealBlock.");
 
         // Check the slot and make sure there is no playing bet.
         Bet storage _bet = bets[_magicNumber];
