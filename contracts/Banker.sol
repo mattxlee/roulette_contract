@@ -587,7 +587,7 @@ contract Banker {
 
         require(
             _currBlock <= _bet.lastRevealBlock,
-            "The bet is out of the block range (Timeout!)."
+            "The bet is timeout."
         );
 
         // Calculate the result.
