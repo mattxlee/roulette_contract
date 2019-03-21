@@ -64,6 +64,7 @@ contract Banker {
     enum RevealFailStatus { InsufficientContractBalance }
 
     uint256 constant private eth1 = 1e18;
+    uint256 constant private key1 = 1e18;
     uint256 constant private rou1 = 1e16;
 
     // Owner will be able to withdraw and setup a new banker account
@@ -654,6 +655,19 @@ contract Banker {
 
         // Clear the slot.
         clearBet(_magicNumber);
+    }
+
+    /**
+     * @dev Calculate the key price
+     * @return Key price in eth
+     */
+    function getKeyPrice() public view returns (uint256) {
+        Game storage _game = games[gameID];
+        if (_game.keys == 0) {
+            return key1.eth();
+        } else {
+            return _game.keys.ethRec(key1);
+        }
     }
 
     /**
