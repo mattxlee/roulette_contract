@@ -318,6 +318,7 @@ contract("Banker", async accounts => {
             bet.expireOnBlockNum = web3.utils.toBN(await web3.eth.getBlockNumber()).add(web3.utils.toBN(100));
             bet.randObj = await generateRandomNumberAndSign(28, bet.expireOnBlockNum, bankerAddr);
             bet.betDataHex = makeRandomBetData();
+            bet.eth = eth1;
             bets.push(bet);
 
             await truffleAssert.passes(
@@ -329,7 +330,7 @@ contract("Banker", async accounts => {
                     bet.randObj.signS,
                     {
                         from: playerAddr,
-                        value: eth1
+                        value: bet.eth
                     }
                 )
             );
@@ -340,7 +341,18 @@ contract("Banker", async accounts => {
         const banker = await Banker.deployed();
 
         for (let i = 0; i < bets.length; ++i) {
-            await truffleAssert.passes(banker.revealBet(bets[i].randObj.randNum));
+            const keyPrice = await banker.getKeyPrice.call();
+            const tx = await banker.revealBet(bets[i].randObj.randNum);
+            let winEth;
+            truffleAssert.eventEmitted(tx, "BetIsRevealed", evt => {
+                winEth = evt.winAmount.mul(eth1).div(bigNum(100));
+                return true;
+            });
+            if (winEth.lt(bets[i].eth)) {
+                // Losing money, key price should raise
+                const keyPriceAfter = await banker.getKeyPrice.call();
+                assert.isTrue(keyPriceAfter.gt(keyPrice), "Key price should raise after losing eth!");
+            }
         }
     });
 });
