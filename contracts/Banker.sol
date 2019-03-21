@@ -204,54 +204,6 @@ contract Banker {
         _game.jackpotEth = _game.jackpotEth.add(_inc);
     }
 
-//==_===================================================================================================================
-// |_) |_ |o _ ._ _  __|_|_  _  _| _
-// ||_||_)||(_ | | |(/_|_| |(_)(_|_>
-
-    /**
-     * @dev Constructor will initialize owner, maxBetEth and odds
-     */
-    constructor() public {
-        owner = msg.sender;
-
-        gameID = 1;
-        lastPlyID = 1;
-
-        maxBetEth = eth1 / 10;
-
-        // Initialize odds.
-        odds[1] = 35;
-        odds[2] = 17;
-        odds[3] = 11;
-        odds[4] = 8;
-        odds[5] = 6;
-        odds[6] = 5;
-        odds[12] = 2;
-        odds[18] = 1;
-    }
-
-    /**
-     * @dev Assign a new banker account to contract
-     * @param _newBanker Address of the new banker account
-     */
-    function setBanker(address _newBanker) public ownerOnly {
-        banker = _newBanker;
-    }
-
-    /**
-     * @dev Deposit eth to contract
-     */
-    function deposit() public payable {}
-
-    /**
-     * @dev Set the value of max bet eth
-     * @param _numOfEth How many you want to set as the max bet eth
-     */
-    function setMaxBetEth(uint256 _numOfEth) public ownerOnly {
-        require(_numOfEth <= eth1.mul(10) && _numOfEth >= 1e18 / 100, "The amount of max bet is out of range!");
-        maxBetEth = _numOfEth;
-    }
-
     /**
      * @dev Calculate how many amount of chips from bet details
      * @param _betData The data of bet details
@@ -507,6 +459,54 @@ contract Banker {
         _bet.lastRevealBlock = 0;
     }
 
+//==_===================================================================================================================
+// |_) |_ |o _ ._ _  __|_|_  _  _| _
+// ||_||_)||(_ | | |(/_|_| |(_)(_|_>
+
+    /**
+     * @dev Constructor will initialize owner, maxBetEth and odds
+     */
+    constructor() public {
+        owner = msg.sender;
+
+        gameID = 1;
+        lastPlyID = 1;
+
+        maxBetEth = eth1 / 10;
+
+        // Initialize odds.
+        odds[1] = 35;
+        odds[2] = 17;
+        odds[3] = 11;
+        odds[4] = 8;
+        odds[5] = 6;
+        odds[6] = 5;
+        odds[12] = 2;
+        odds[18] = 1;
+    }
+
+    /**
+     * @dev Assign a new banker account to contract
+     * @param _newBanker Address of the new banker account
+     */
+    function setBanker(address _newBanker) public ownerOnly {
+        banker = _newBanker;
+    }
+
+    /**
+     * @dev Deposit eth to contract
+     */
+    function deposit() public payable {}
+
+    /**
+     * @dev Set the value of max bet eth
+     * @param _numOfEth How many you want to set as the max bet eth
+     */
+    function setMaxBetEth(uint256 _numOfEth) public ownerOnly {
+        require(_numOfEth <= eth1.mul(10) && _numOfEth >= 1e18 / 100, "The amount of max bet is out of range!");
+        maxBetEth = _numOfEth;
+    }
+
     /**
      * @dev Place a bet
      * @param _magicNumber The hash value of the random number that is provided by our server
@@ -720,11 +720,12 @@ contract Banker {
 
         for (uint256 _GID = 1; _GID <= gameID; ++_GID) {
             Game storage _game = games[_GID];
-            if (_eth <= _game.poolEth) {
+            uint256 _useEth = _game.poolEth.add(_game.jackpotEth);
+            if (_eth <= _useEth) {
                 // Now I have debt, sigh!
                 return 0;
             }
-            _eth = _eth.sub(games[_GID].poolEth);
+            _eth = _eth.sub(_useEth);
         }
         return _eth;
     }

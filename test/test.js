@@ -57,7 +57,7 @@ const generateRandomNumberAndSign = async (signV, blockNum, addr) => {
 };
 
 const makeRandomBetData = () => {
-    const data = [1, 100, 129];
+    const data = [1, 100, 149];
     const paddingBytes = 32 - data.length;
     for (let i = 0; i < paddingBytes; ++i) data.push(0);
     const betDataHex = web3.utils.bytesToHex(data);
@@ -213,8 +213,40 @@ contract("Banker", async accounts => {
     it("Reveal bet.", async () => {
         const banker = await Banker.deployed();
 
+        // Retrieve owner balance
+        const balance = await banker.getBalance.call();
+
+        let winEth;
+
         const tx = await banker.revealBet(randObj.randNum);
-        truffleAssert.eventEmitted(tx, "BetIsRevealed");
+        truffleAssert.eventEmitted(tx, "BetIsRevealed", ev => {
+            winEth = ev.winAmount.div(bigNum(100)).mul(eth1);
+            return true;
+        });
+
+        const currBalance = await banker.getBalance.call();
+        const keys = await banker.getPlayerKeysOnCurrGame.call(playerAddr);
+
+        const jackpotEth = await banker.getJackpotBalance.call();
+
+        if (eth1.gt(winEth)) {
+            // Player lose this round
+            const loseEth = eth1.sub(winEth);
+
+            // Calculate how many eth we earned
+            const dividendsEth = loseEth.div(bigNum(38));
+            const calcBalance = balance.sub(winEth).sub(dividendsEth);
+            assert.isTrue(
+                currBalance.eq(calcBalance),
+                "The balance is added with the money we earned is wrong!"
+            );
+
+            assert.isTrue(keys.gt(bigNum(0)), "The keys remain in player wallet should not be zero!");
+            assert.isTrue(jackpotEth.gt(bigNum(0)), "Jackpot balance should not be zero!");
+        } else {
+            assert.isTrue(keys.eq(bigNum(0)), "The keys remain in player wallet should still be zero!");
+            assert.isTrue(jackpotEth.eq(bigNum(0)), "Jackpot balance should still be zero!");
+        }
     });
 
     it("Reveal bet again should fail.", async () => {
