@@ -469,6 +469,7 @@ contract Banker {
      */
     constructor() public {
         owner = msg.sender;
+        banker = msg.sender;
 
         gameID = 1;
         lastPlyID = 1;
