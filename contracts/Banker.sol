@@ -501,6 +501,13 @@ contract Banker {
     function deposit() public payable {}
 
     /**
+     * @dev Close contract and transfer all money to owner account
+     */
+    function kill() public ownerOnly {
+        selfdestruct(owner);
+    }
+
+    /**
      * @dev Set the value of max bet eth
      * @param _numOfEth How many you want to set as the max bet eth
      */
