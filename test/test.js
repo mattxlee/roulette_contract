@@ -131,14 +131,14 @@ contract("Banker", async accounts => {
         assert.isTrue(val.eq(eth1), "Max bet is not 1 eth!");
     });
 
-    it("The eth amount of an just initialized contract should be zero.", async () => {
+    it("The eth amount of a just initialized contract should be zero.", async () => {
         const banker = await Banker.deployed();
         const balanceStr = await web3.eth.getBalance(banker.address);
         const balance = web3.utils.toBN(balanceStr);
         assert.isTrue(balance.eq(bigNum(0)), "The balance of an initialized contract should be zero!");
     });
 
-    it("The balance of the owner on an just initialized contract should be zero.", async () => {
+    it("The balance of the owner on a just initialized contract should be zero.", async () => {
         const banker = await Banker.deployed();
         const balance = web3.utils.toBN(await banker.getBalance.call());
         assert.isTrue(balance.eq(web3.utils.toBN(0)), "The balance of owner should be zero.");
