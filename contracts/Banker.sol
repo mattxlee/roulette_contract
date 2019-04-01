@@ -88,8 +88,12 @@ contract Banker {
      * @param magicNumber The hash value of the random number
      * @param dice The result number has been revealed eventually
      * @param winAmount The amount of the contract has paid to player
+     * @param winEth The amount of the winning in eth
+     * @param affID The ID number of the affiliate
+     * @param affEth How much eth the affiliate earned
      */
-    event BetIsRevealed(uint256 magicNumber, uint256 dice, uint256 winAmount);
+    event BetIsRevealed(uint256 magicNumber, uint256 dice, uint256 winAmount, uint256 winEth, uint256 affID,
+        uint256 affEth);
 
     /**
      * @dev Emit on current jackpot is revealed
@@ -367,6 +371,69 @@ contract Banker {
     }
 
     /**
+     * @dev Distribute dividends to jackpot, player and affiliate
+     * @param _plyAddr Address of the player
+     * @param _magicNumber The magic number
+     * @param _betHash The hash value before the dice calculation
+     * @param _dice The dice value
+     * @param _winRou How much the player won in ROU
+     */
+    function distributeDividendsOnPlayerWon(
+        address payable _plyAddr,
+        uint256 _magicNumber,
+        uint256 _betHash,
+        uint256 _dice,
+        uint256 _winRou
+    )
+        private
+    {
+        uint256 _winEth = _winRou.toEth();
+        uint256 _affID = 0;
+        uint256 _affEth = 0;
+
+        // If the amount of winning award is larger than 0.01 eth, we should put 0.002 to jackpot
+        // And the player has the change to win the jackpot
+        if (_winEth > eth1.div(100)) {
+            Game storage _game = games[gameID];
+            uint256 _jackpotEth = _game.jackpotEth;
+
+            uint256 _plyID = addr2plyID[_plyAddr];
+            Player storage _ply = players[_plyID];
+            _affID = _ply.affID;
+
+            if (_affID > 0) {
+                // Player has an affiliate, we need to split the amount. (0.001 to jackpot, 0.001 to the affilaite)
+                _game.jackpotEth = _jackpotEth.add(eth1 / 1000);
+                Player storage _aff = players[_affID];
+                _affEth = eth1 / 1000;
+                _aff.eth = _aff.eth.add(_affEth);
+            } else {
+                // No affiliate, put 0.002 eth to jackpot
+                _game.jackpotEth = _jackpotEth.add(eth1.mul(2) / 1000);
+            }
+            _jackpotEth = _game.jackpotEth;
+
+            uint256 _ethToTrans = _winEth.sub(eth1.mul(2) / 1000);
+            _plyAddr.transfer(_ethToTrans);
+
+            // Jackpot winning?
+            uint256 _jackpotResult = _betHash % 1000;
+            if (_jackpotResult == 888) {
+                // Jackpot winner is the player.
+                _plyAddr.transfer(_jackpotEth);
+                emit JackpotIsRevealed(gameID, _plyAddr, _jackpotEth);
+
+                // Start a new game here.
+                ++gameID;
+            }
+        } else {
+            bankerEth = bankerEth.sub(_winEth);
+            _plyAddr.transfer(_winEth);
+        }
+        emit BetIsRevealed(_magicNumber, _dice, _winRou, _winEth, _affID, _affEth);
+    }
+
+    /**
      * @dev Erase bet information on specified magic number
      * @param _magicNumber The hash value and it is also the place where the bet info. are stored
      */
@@ -523,54 +590,19 @@ contract Banker {
         );
 
         // Calculate the result.
-        bytes32 _betHash = keccak256(abi.encodePacked(_randomNumber, blockhash(_betPlacedOnBlock)));
-        uint256 _dice = uint256(_betHash) % 38;
+        uint256 _betHash = uint256(keccak256(abi.encodePacked(_randomNumber, blockhash(_betPlacedOnBlock))));
+        uint256 _dice = _betHash % 38;
 
         // Calculate win amount.
         uint256 _winRou = calcWinRouOnNumber(_bet.betData, _dice);
-        uint256 _winEth = 0;
 
         if (_winRou > 0) {
-            _winEth = _winRou.toEth();
-            // If the amount of winning award is larger than 0.01 eth, we should put 0.002 to jackpot
-            if (_winEth > eth1.div(100)) {
-                Game storage _game = games[gameID];
-                uint256 _jackpotEth = _game.jackpotEth;
-
-                uint256 _plyID = addr2plyID[_plyAddr];
-                Player storage _ply = players[_plyID];
-
-                if (_ply.affID > 0) {
-                    // Player has an affiliate, we need to split the amount. (0.001 to jackpot, 0.001 to the affilaite)
-                    _game.jackpotEth = _jackpotEth.add(eth1 / 1000);
-                    Player storage _aff = players[_ply.affID];
-                    _aff.eth = _aff.eth.add(eth1 / 1000);
-                } else {
-                    // No affiliate, put 0.002 eth to jackpot
-                    _game.jackpotEth = _jackpotEth.add(eth1.mul(2) / 1000);
-                }
-                _jackpotEth = _game.jackpotEth;
-
-                uint256 _ethToTrans = _winEth.sub(eth1.mul(2) / 1000);
-                _plyAddr.transfer(_ethToTrans);
-
-                // Jackpot winning?
-                uint256 _jackpotResult = uint256(_betHash) % 1000;
-                if (_jackpotResult == 888) {
-                    // Jackpot winner is the player.
-                    _plyAddr.transfer(_jackpotEth);
-                    emit JackpotIsRevealed(gameID, _plyAddr, _jackpotEth);
-
-                    // Start a new game here.
-                    ++gameID;
-                }
-            } else {
-                bankerEth = bankerEth.sub(_winEth);
-                _plyAddr.transfer(_winEth);
-            }
+            distributeDividendsOnPlayerWon(_plyAddr, _magicNumber, _betHash, _dice, _winRou);
+        } else {
+            // We just simply call the event with zero arguments.
+            emit BetIsRevealed(_magicNumber, _dice, 0, 0, 0, 0);
         }
 
-        emit BetIsRevealed(_magicNumber, _dice, _winRou);
         clearBet(_magicNumber);
     }
 
@@ -592,15 +624,45 @@ contract Banker {
     }
 
     /**
+     * @dev Return the balance of the banker
+     * @return The balance in eth
+     */
+    function getBankerBalance() public view returns (uint256) {
+        return bankerEth;
+    }
+
+    /**
+     * @dev Return the ID number of the player
+     * @param _plyAddr Address of the player
+     * @return The ID number
+     */
+    function getPlayerID(address _plyAddr) public view returns (uint256) {
+        return addr2plyID[_plyAddr];
+    }
+
+    /**
      * @dev Return affiliate ID of the player
      * @param _plyAddr Address of the player
      * @return Affiliate ID or 0 means the player has no affiliate
      */
     function getPlayerAffID(address _plyAddr) public view returns (uint256) {
         uint256 _plyID = addr2plyID[_plyAddr];
-        require(_plyID > 0, "It is not our player yet!");
+        require(_plyID > 0, "This address is not registered as a player!");
 
         return players[_plyID].affID;
+    }
+
+    /**
+     * @dev Return balance of the player
+     * @param _plyAddr Address of the player
+     * @return The balance
+     */
+    function getPlayerBalance(address _plyAddr) public view returns (uint256) {
+        uint256 _plyID = addr2plyID[_plyAddr];
+        require(_plyID > 0, "This address is not registered as a player!");
+
+        Player storage _ply = players[_plyID];
+        return _ply.eth;
     }
 
     /**

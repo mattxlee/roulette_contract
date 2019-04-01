@@ -140,7 +140,7 @@ contract("Banker", async accounts => {
 
     it("The balance of the owner on a just initialized contract should be zero.", async () => {
         const banker = await Banker.deployed();
-        const balance = web3.utils.toBN(await banker.getBalance.call());
+        const balance = web3.utils.toBN(await banker.getBankerBalance());
         assert.isTrue(balance.eq(web3.utils.toBN(0)), "The balance of owner should be zero.");
     });
 
@@ -158,7 +158,7 @@ contract("Banker", async accounts => {
 
     it("The balance of the owner on the contract should be 10 eth.", async () => {
         const banker = await Banker.deployed();
-        const balance = web3.utils.toBN(await banker.getBalance.call());
+        const balance = web3.utils.toBN(await banker.getBankerBalance());
         assert.isTrue(balance.eq(eth1.mul(bigNum(10))), "The balance of owner should be 10 eth.");
     });
 
@@ -213,36 +213,31 @@ contract("Banker", async accounts => {
     it("Reveal bet.", async () => {
         const banker = await Banker.deployed();
 
-        // Retrieve owner balance
-        const balance = await banker.getBalance.call();
-
         let winEth;
 
         const tx = await banker.revealBet(randObj.randNum);
         truffleAssert.eventEmitted(tx, "BetIsRevealed", ev => {
-            winEth = ev.winAmount.div(bigNum(100)).mul(eth1);
+            winEth = ev.winEth;
             return true;
         });
 
-        const currBalance = await banker.getBalance.call();
-        const keys = await banker.getPlayerKeysOnCurrGame.call(playerAddr);
-
-        const jackpotEth = await banker.getJackpotBalance.call();
+        const currBalance = await banker.getBankerBalance();
+        const jackpotEth = await banker.getJackpotBalance();
 
         if (eth1.gt(winEth)) {
             // Player lose this round
             const loseEth = eth1.sub(winEth);
 
             // Calculate how many eth we earned
-            const dividendsEth = loseEth.div(bigNum(38));
-            const calcBalance = balance.sub(winEth).sub(dividendsEth);
+            const calcBalance = loseEth;
             assert.isTrue(currBalance.eq(calcBalance), "The balance is added with the money we earned is wrong!");
 
-            assert.isTrue(keys.gt(bigNum(0)), "The keys remain in player wallet should not be zero!");
-            assert.isTrue(jackpotEth.gt(bigNum(0)), "Jackpot balance should not be zero!");
+            assert.isTrue(jackpotEth.eq(bigNum(0)), "Jackpot balance should not be zero!");
         } else {
-            assert.isTrue(keys.eq(bigNum(0)), "The keys remain in player wallet should still be zero!");
-            assert.isTrue(jackpotEth.eq(bigNum(0)), "Jackpot balance should still be zero!");
+            assert.isTrue(
+                jackpotEth.eq(eth1.div(web3.utils.toBN(1000)).mul(web3.utils.toBN(2))),
+                "Jackpot balance should be 0.002 ETH!"
+            );
         }
     });
 
@@ -341,18 +336,8 @@ contract("Banker", async accounts => {
         const banker = await Banker.deployed();
 
         for (let i = 0; i < bets.length; ++i) {
-            const keyPrice = await banker.getKeyPrice.call();
             const tx = await banker.revealBet(bets[i].randObj.randNum);
-            let winEth;
-            truffleAssert.eventEmitted(tx, "BetIsRevealed", evt => {
-                winEth = evt.winAmount.mul(eth1).div(bigNum(100));
-                return true;
-            });
-            if (winEth.lt(bets[i].eth)) {
-                // Losing money, key price should raise
-                const keyPriceAfter = await banker.getKeyPrice.call();
-                assert.isTrue(keyPriceAfter.gt(keyPrice), "Key price should raise after losing eth!");
-            }
+            truffleAssert.eventEmitted(tx, "BetIsRevealed");
         }
     });
 });
