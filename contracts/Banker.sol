@@ -120,6 +120,11 @@ contract Banker {
      * @return The player ID which is registered from our storage
      */
     function registerPlayer(address payable _plyAddr, uint256 _affID) private returns (uint256) {
+        // Ensure the affID is valid
+        if (_affID > 0) {
+            Player storage _aff = players[_affID];
+            require(_aff.addr != address(0), "Affiliate is not registered!");
+        }
         // We should ensure the player is registered
         uint256 _plyID = addr2plyID[_plyAddr];
         if (_plyID == 0) {
@@ -432,10 +437,10 @@ contract Banker {
                 // Start a new game here.
                 ++gameID;
             }
-        } else {
-            bankerEth = bankerEth.sub(_winEth);
+        } else if (_winEth > 0) {
             _plyAddr.transfer(_winEth);
         }
+        bankerEth = bankerEth.sub(_winEth);
         emit BetIsRevealed(_magicNumber, _dice, _winRou, _winEth, _affID, _affEth);
     }
 
@@ -601,13 +606,7 @@ contract Banker {
 
         // Calculate win amount.
         uint256 _winRou = calcWinRouOnNumber(_bet.betData, _dice);
-
-        if (_winRou > 0) {
-            distributeDividendsOnPlayerWon(_plyAddr, _magicNumber, _betHash, _dice, _winRou);
-        } else {
-            // We just simply call the event with zero arguments.
-            emit BetIsRevealed(_magicNumber, _dice, 0, 0, 0, 0);
-        }
+        distributeDividendsOnPlayerWon(_plyAddr, _magicNumber, _betHash, _dice, _winRou);
 
         clearBet(_magicNumber);
     }
@@ -624,6 +623,7 @@ contract Banker {
         require(block.number > _bet.lastRevealBlock, "The bet is still in play.");
 
         _plyAddr.transfer(_bet.betEth);
+        bankerEth = bankerEth.sub(_bet.betEth);
 
         // Clear the slot.
         clearBet(_magicNumber);
