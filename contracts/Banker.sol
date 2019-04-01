@@ -84,13 +84,6 @@ contract Banker {
     );
 
     /**
-     * @dev Emit on a bet is not able to reveal
-     * @param magicNumber The hash value of the random number
-     * @param reason The fail reason
-     */
-    event BetCannotBeRevealed(uint256 magicNumber, RevealFailStatus reason);
-
-    /**
      * @dev Emit on a bet is revealed
      * @param magicNumber The hash value of the random number
      * @param dice The result number has been revealed eventually
