@@ -116,14 +116,20 @@ contract Banker {
     /**
      * @dev Register an address as a player, if the player already exists, then returns the existing ID
      * @param _plyAddr Address of the player
+     * @param _affID ID number of the affiliate
      * @return The player ID which is registered from our storage
      */
-    function registerPlayer(address _plyAddr) private returns (uint256) {
+    function registerPlayer(address payable _plyAddr, uint256 _affID) private returns (uint256) {
         // We should ensure the player is registered
         uint256 _plyID = addr2plyID[_plyAddr];
         if (_plyID == 0) {
+            ++lastPlyID; // Increase lastPlyID first, because the player ID starts from 1
             addr2plyID[_plyAddr] = lastPlyID;
-            ++lastPlyID;
+            _plyID = lastPlyID;
+            // Initialize player member
+            Player storage _ply = players[_plyID];
+            _ply.addr = _plyAddr;
+            _ply.affID = _affID;
         }
         return _plyID;
     }
@@ -458,8 +464,6 @@ contract Banker {
         banker = msg.sender;
 
         gameID = 1;
-        lastPlyID = 1;
-
         maxBetEth = eth1 / 10;
 
         // Initialize odds.
@@ -512,13 +516,15 @@ contract Banker {
      * @param _betData The bet details
      * @param _signR The signature R value
      * @param _signS The signature S value
+     * @param _affID ID number of the affiliate
      */
     function placeBet(
         uint256 _magicNumber,
         uint256 _lastRevealBlock,
         bytes32 _betData,
         bytes32 _signR,
-        bytes32 _signS
+        bytes32 _signS,
+        uint256 _affID
     )
         public
         payable
@@ -530,14 +536,13 @@ contract Banker {
         Bet storage _bet = bets[_magicNumber];
         require(_bet.player == address(0), "The slot is not empty.");
 
-        // Throw if there are not enough eth are provided by customer.
+        // Throw if there are not enough eth are provided by player.
         uint256 _betRou = calcBetRou(_betData);
         uint256 _betEth = _betRou.toEth();
-        uint256 _eth = msg.value;
 
-        bankerEth = bankerEth.add(_eth); // Adjust balance of the banker
+        bankerEth = bankerEth.add(msg.value); // Adjust balance of the banker
 
-        require(_eth >= _betEth, "There are not enough eth are provided by customer.");
+        require(msg.value >= _betEth, "There are not enough eth are provided by customer.");
         require(_betEth <= maxBetEth, "Exceed the maximum.");
 
         // Check the signature.
@@ -553,9 +558,10 @@ contract Banker {
         _bet.placedOnBlock = _currBlock;
         _bet.lastRevealBlock = _lastRevealBlock;
         bets[_magicNumber] = _bet;
-        registerPlayer(_bet.player);
 
-        emit BetIsPlaced(_eth, _magicNumber, _betData, _lastRevealBlock);
+        registerPlayer(_bet.player, _affID);
+
+        emit BetIsPlaced(msg.value, _magicNumber, _betData, _lastRevealBlock);
     }
 
     /**

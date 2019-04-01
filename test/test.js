@@ -173,7 +173,7 @@ contract("Banker", async accounts => {
         randObj = await generateRandomNumberAndSign(28, blockNum, bankerAddr);
         betDataHex = makeRandomBetData();
 
-        const tx = await banker.placeBet(randObj.magicHex, blockNum, betDataHex, randObj.signR, randObj.signS, {
+        const tx = await banker.placeBet(randObj.magicHex, blockNum, betDataHex, randObj.signR, randObj.signS, 0, {
             from: playerAddr,
             value: eth1
         });
@@ -184,7 +184,7 @@ contract("Banker", async accounts => {
         const banker = await Banker.deployed();
 
         truffleAssert.reverts(
-            banker.placeBet(randObj.magicHex, blockNum, betDataHex, randObj.signR, randObj.signS, {
+            banker.placeBet(randObj.magicHex, blockNum, betDataHex, randObj.signR, randObj.signS, 0, {
                 from: playerAddr,
                 value: eth1
             }),
@@ -214,6 +214,7 @@ contract("Banker", async accounts => {
         const banker = await Banker.deployed();
 
         let winEth;
+        const balance = web3.utils.toBN(await banker.getBankerBalance());
 
         const tx = await banker.revealBet(randObj.randNum);
         truffleAssert.eventEmitted(tx, "BetIsRevealed", ev => {
@@ -229,7 +230,7 @@ contract("Banker", async accounts => {
             const loseEth = eth1.sub(winEth);
 
             // Calculate how many eth we earned
-            const calcBalance = loseEth;
+            const calcBalance = loseEth.add(balance);
             assert.isTrue(currBalance.eq(calcBalance), "The balance is added with the money we earned is wrong!");
 
             assert.isTrue(jackpotEth.eq(bigNum(0)), "Jackpot balance should not be zero!");
@@ -255,7 +256,7 @@ contract("Banker", async accounts => {
         const betDataHex = makeRandomBetData();
 
         await truffleAssert.reverts(
-            banker.placeBet(randObj.magicHex, expireOnBlockNum, betDataHex, randObj.signR, randObj.signS, {
+            banker.placeBet(randObj.magicHex, expireOnBlockNum, betDataHex, randObj.signR, randObj.signS, 0, {
                 from: playerAddr,
                 value: eth1
             }),
@@ -271,7 +272,7 @@ contract("Banker", async accounts => {
         betDataHex = makeRandomBetData();
 
         await truffleAssert.passes(
-            banker.placeBet(randObj.magicHex, expireOnBlockNum, betDataHex, randObj.signR, randObj.signS, {
+            banker.placeBet(randObj.magicHex, expireOnBlockNum, betDataHex, randObj.signR, randObj.signS, 0, {
                 from: playerAddr,
                 value: eth1
             })
@@ -323,6 +324,7 @@ contract("Banker", async accounts => {
                     bet.betDataHex,
                     bet.randObj.signR,
                     bet.randObj.signS,
+                    0,
                     {
                         from: playerAddr,
                         value: bet.eth
