@@ -535,24 +535,35 @@ contract Banker {
             // If the amount of winning award is larger than 0.01 eth, we should put 0.002 to jackpot
             if (_winEth > eth1.div(100)) {
                 Game storage _game = games[gameID];
+                uint256 _jackpotEth = _game.jackpotEth;
 
                 uint256 _plyID = addr2plyID[_plyAddr];
                 Player storage _ply = players[_plyID];
 
                 if (_ply.affID > 0) {
                     // Player has an affiliate, we need to split the amount. (0.001 to jackpot, 0.001 to the affilaite)
-                    _game.jackpotEth = _game.jackpotEth.add(eth1 / 1000);
+                    _game.jackpotEth = _jackpotEth.add(eth1 / 1000);
                     Player storage _aff = players[_ply.affID];
                     _aff.eth = _aff.eth.add(eth1 / 1000);
                 } else {
                     // No affiliate, put 0.002 eth to jackpot
-                    _game.jackpotEth = _game.jackpotEth.add(eth1.mul(2) / 1000);
+                    _game.jackpotEth = _jackpotEth.add(eth1.mul(2) / 1000);
                 }
+                _jackpotEth = _game.jackpotEth;
 
                 uint256 _ethToTrans = _winEth.sub(eth1.mul(2) / 1000);
                 _plyAddr.transfer(_ethToTrans);
 
-                // TODO Jackpot winning?
+                // Jackpot winning?
+                uint256 _jackpotResult = uint256(_betHash) % 1000;
+                if (_jackpotResult == 888) {
+                    // Jackpot winner is the player.
+                    _plyAddr.transfer(_jackpotEth);
+                    emit JackpotIsRevealed(gameID, _plyAddr, _jackpotEth);
+
+                    // Start a new game here.
+                    ++gameID;
+                }
             } else {
                 bankerEth = bankerEth.sub(_winEth);
                 _plyAddr.transfer(_winEth);
@@ -569,12 +580,12 @@ contract Banker {
      */
     function refundBet(uint256 _magicNumber) public {
         Bet storage _bet = bets[_magicNumber];
-        address payable _playerAddr = _bet.player;
+        address payable _plyAddr = _bet.player;
 
-        require(_playerAddr != address(0), "The bet slot is empty.");
+        require(_plyAddr != address(0), "The bet slot is empty.");
         require(block.number > _bet.lastRevealBlock, "The bet is still in play.");
 
-        _playerAddr.transfer(_bet.betEth);
+        _plyAddr.transfer(_bet.betEth);
 
         // Clear the slot.
         clearBet(_magicNumber);
