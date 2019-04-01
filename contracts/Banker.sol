@@ -23,6 +23,7 @@ contract Banker {
     struct Player {
         address payable addr; // The player address
         uint256 affID; // Affiliate ID is recorded
+        uint256 eth; // The balance of the player
     }
 
     // Player
@@ -31,9 +32,7 @@ contract Banker {
     uint256 lastPlyID;
 
     struct Game {
-        uint256 poolEth; // Will be added from last game
         uint256 jackpotEth; // Each jackpot will drain all
-        uint256 keys; // Total keys are sold
     }
 
     mapping (uint256 => Game) games;
@@ -51,15 +50,15 @@ contract Banker {
     // Error declaration
     enum RevealFailStatus { InsufficientContractBalance }
 
-    uint256 constant private eth1 = 1e18;
-    uint256 constant private key1 = 1e18;
-    uint256 constant private rou1 = 1e16;
+    uint256 constant eth1 = 1e18;
+    uint256 constant rou1 = 1e16;
 
     // Owner will be able to withdraw and setup a new banker account
     address payable public owner;
 
     // Banker is the account to generate random number, so it is the key account to verify the signature
     address public banker;
+    uint256 public bankerEth; // The balance of banker.
 
     // maxBetEth is the range for the amount of placed bet.
     uint256 public maxBetEth;
@@ -172,7 +171,7 @@ contract Banker {
      * @dev Calculate the amount to win according to the result
      * @param _betData The bet details
      * @param _dice The result
-     * @return Amount of chips should win
+     * @return Amount should win in ROU
      */
     function calcWinRouOnNumber(bytes32 _betData, uint256 _dice) private view returns (uint256) {
         uint8 _numOfBets = uint8(_betData[0]);
@@ -424,7 +423,9 @@ contract Banker {
     /**
      * @dev Deposit eth to contract
      */
-    function deposit() public payable {}
+    function deposit() public payable {
+        bankerEth = bankerEth.add(msg.value);
+    }
 
     /**
      * @dev Close contract and transfer all money to owner account
@@ -472,6 +473,8 @@ contract Banker {
         uint256 _betRou = calcBetRou(_betData);
         uint256 _betEth = _betRou.toEth();
         uint256 _eth = msg.value;
+
+        bankerEth = bankerEth.add(_eth); // Adjust balance of the banker
 
         require(_eth >= _betEth, "There are not enough eth are provided by customer.");
         require(_betEth <= maxBetEth, "Exceed the maximum.");
@@ -535,14 +538,34 @@ contract Banker {
 
         if (_winRou > 0) {
             _winEth = _winRou.toEth();
-            if (address(this).balance < _winEth) {
-                emit BetCannotBeRevealed(_magicNumber, RevealFailStatus.InsufficientContractBalance);
-                return;
-            }
-            _plyAddr.transfer(_winEth);
-        }
-        emit BetIsRevealed(_magicNumber, _dice, _winRou);
+            // If the amount of winning award is larger than 0.01 eth, we should put 0.002 to jackpot
+            if (_winEth > eth1.div(100)) {
+                Game storage _game = games[gameID];
 
+                uint256 _plyID = addr2plyID[_plyAddr];
+                Player storage _ply = players[_plyID];
+
+                if (_ply.affID > 0) {
+                    // Player has an affiliate, we need to split the amount. (0.001 to jackpot, 0.001 to the affilaite)
+                    _game.jackpotEth = _game.jackpotEth.add(eth1 / 1000);
+                    Player storage _aff = players[_ply.affID];
+                    _aff.eth = _aff.eth.add(eth1 / 1000);
+                } else {
+                    // No affiliate, put 0.002 eth to jackpot
+                    _game.jackpotEth = _game.jackpotEth.add(eth1.mul(2) / 1000);
+                }
+
+                uint256 _ethToTrans = _winEth.sub(eth1.mul(2) / 1000);
+                _plyAddr.transfer(_ethToTrans);
+
+                // TODO Jackpot winning?
+            } else {
+                bankerEth = bankerEth.sub(_winEth);
+                _plyAddr.transfer(_winEth);
+            }
+        }
+
+        emit BetIsRevealed(_magicNumber, _dice, _winRou);
         clearBet(_magicNumber);
     }
 
@@ -573,25 +596,6 @@ contract Banker {
         require(_plyID > 0, "It is not our player yet!");
 
         return players[_plyID].affID;
-    }
-
-    /**
-     * @dev Get contract balance
-     * @return Balance value in eth
-     */
-    function getBalance() public view returns (uint256) {
-        uint256 _eth = address(this).balance;
-
-        for (uint256 _GID = 1; _GID <= gameID; ++_GID) {
-            Game storage _game = games[_GID];
-            uint256 _useEth = _game.poolEth.add(_game.jackpotEth);
-            if (_eth <= _useEth) {
-                // Now I have debt, sigh!
-                return 0;
-            }
-            _eth = _eth.sub(_useEth);
-        }
-        return _eth;
     }
 
     /**
