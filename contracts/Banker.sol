@@ -93,10 +93,11 @@ contract Banker {
 
     /**
      * @dev Emit on current jackpot is revealed
+     * @param gameID Current identify number of jackpot
      * @param winnerAddr Address of the winner
      * @param eth The amount of the reward in eth
      */
-    event JackpotIsRevealed(address winnerAddr, uint256 eth);
+    event JackpotIsRevealed(uint256 gameID, address winnerAddr, uint256 eth);
 
     // Ensure the function is called by owner
     modifier ownerOnly() {
