@@ -15,6 +15,17 @@ const generateRandomNumber = () => {
     return [randNum, hashHex];
 };
 
+const getRandomEthByMaxRou = maxRou => {
+    const ROU = [100, 50, 20, 10, 5, 2, 1];
+    const r = web3.utils.toBN(web3.utils.randomHex(32));
+    const by = web3.utils.toBN(ROU.length);
+    const idx = r.mod(by).toNumber();
+    const rou = ROU[idx];
+    // Convert ROU to ETH
+    const eth = web3.utils.toBN(rou).mul(eth1.div(web3.utils.toBN(100)));
+    return { rou, eth };
+};
+
 const makeSignature = async (magicHex, blockNum, addr) => {
     // randNum connect with blockNum
     const a1 = web3.utils.hexToBytes(magicHex);
@@ -56,12 +67,16 @@ const generateRandomNumberAndSign = async (signV, blockNum, addr) => {
     };
 };
 
-const makeRandomBetData = () => {
-    const data = [1, 100, 149];
+const makeRandomBetDataByRou = rou => {
+    const data = [1, rou, 149];
     const paddingBytes = 32 - data.length;
     for (let i = 0; i < paddingBytes; ++i) data.push(0);
     const betDataHex = web3.utils.bytesToHex(data);
     return betDataHex;
+};
+
+const makeRandomBetData = () => {
+    return makeRandomBetDataByRou(100);
 };
 
 const sleep = msecs => {
@@ -129,7 +144,7 @@ contract("Banker", async accounts => {
 
     it("Verify max bet with 1 eth.", async () => {
         const banker = await Banker.deployed();
-        const val = await banker.maxBetEth.call();
+        const val = await banker.maxBetEth();
         assert.isTrue(val.eq(eth1), "Max bet is not 1 eth!");
     });
 
@@ -140,7 +155,7 @@ contract("Banker", async accounts => {
         assert.isTrue(balance.eq(bigNum(0)), "The balance of an initialized contract should be zero!");
     });
 
-    it("The balance of the owner on a just initialized contract should be zero.", async () => {
+    it("The balance of the banker on a just initialized contract should be zero.", async () => {
         const banker = await Banker.deployed();
         const balance = web3.utils.toBN(await banker.getBankerBalance());
         assert.isTrue(balance.eq(web3.utils.toBN(0)), "The balance of owner should be zero.");
@@ -185,6 +200,15 @@ contract("Banker", async accounts => {
         affID = parseInt(await banker.getPlayerID(affAddr));
     });
 
+    it("The balance of banker should be increased by 1 ETH.", async () => {
+        const banker = await Banker.deployed();
+
+        const balance = web3.utils.toBN(await banker.getBankerBalance());
+        const actualBalance = eth1.mul(web3.utils.toBN(10)).add(eth1);
+
+        assert.isTrue(balance.eq(actualBalance), "The balance of banker hasn't increased by 1 ETH.");
+    });
+
     it("Place same bet again should fail.", async () => {
         const banker = await Banker.deployed();
 
@@ -221,6 +245,7 @@ contract("Banker", async accounts => {
         let winEth;
         const balanceBefore = web3.utils.toBN(await banker.getBankerBalance());
         const jackpotBefore = web3.utils.toBN(await banker.getJackpotBalance());
+        const playerBalanceBefore = web3.utils.toBN(await web3.eth.getBalance(affAddr));
 
         const tx = await banker.revealBet(randObj.randNum);
         truffleAssert.eventEmitted(tx, "BetIsRevealed", ev => {
@@ -230,16 +255,26 @@ contract("Banker", async accounts => {
 
         const balanceAfter = await banker.getBankerBalance();
         const jackpotAfter = await banker.getJackpotBalance();
+        const playerBalanceAfter = web3.utils.toBN(await web3.eth.getBalance(affAddr));
+
+        let jackpotIncoming = web3.utils.toBN(0);
 
         const eth001 = eth1.div(web3.utils.toBN(100));
         if (winEth.gt(eth001)) {
-            const jackpotIncoming = eth1.mul(web3.utils.toBN(2)).div(web3.utils.toBN(1000));
+            jackpotIncoming = eth1.mul(web3.utils.toBN(2)).div(web3.utils.toBN(1000));
             assert.isTrue(jackpotAfter.sub(jackpotBefore).eq(jackpotIncoming), "Invalid jackpot balance!");
         }
 
         assert.isTrue(
             balanceBefore.sub(balanceAfter).eq(winEth),
             `Invalid banker balance! Before=${balanceBefore.toString()}, After=${balanceAfter.toString()}.`
+        );
+        assert.isTrue(
+            playerBalanceBefore
+                .add(winEth)
+                .sub(jackpotIncoming)
+                .eq(playerBalanceAfter),
+            "Calculation of player balance is wrong!"
         );
     });
 
@@ -374,6 +409,106 @@ contract("Banker", async accounts => {
 
             // Balance of banker
             assert.isTrue(balanceAfter.add(winEth).eq(balanceBefore), "The balance of banker is invalid!");
+        }
+    });
+
+    it("Set zero to jackpot probability value should fail.", async () => {
+        const banker = await Banker.deployed();
+        await truffleAssert.reverts(
+            banker.setJackpotProbability("0", { from: ownerAddr }),
+            "The value of probability cannot be zero."
+        );
+    });
+
+    it("Set jackpot probability value with player account should fail.", async () => {
+        const banker = await Banker.deployed();
+        await truffleAssert.reverts(
+            banker.setJackpotProbability(web3.utils.toBN(100), { from: playerAddr }),
+            "Only owner can call this function."
+        );
+    });
+
+    it("Set jackpot probability to 1.", async () => {
+        const banker = await Banker.deployed();
+        await truffleAssert.passes(banker.setJackpotProbability(web3.utils.toBN(1), { from: ownerAddr }));
+    });
+
+    it("Place 10 new bet and ready to test with jackpot reveal.", async () => {
+        const banker = await Banker.deployed();
+
+        bets.splice(0); // Clear bets
+        for (let i = 0; i < 10; ++i) {
+            const bet = {};
+            bet.expireOnBlockNum = web3.utils.toBN(await web3.eth.getBlockNumber()).add(web3.utils.toBN(100));
+            bet.randObj = await generateRandomNumberAndSign(28, bet.expireOnBlockNum, bankerAddr);
+            bet.value = getRandomEthByMaxRou(200);
+            bet.betDataHex = makeRandomBetDataByRou(bet.value.rou);
+            const tx = await banker.placeBet(
+                bet.randObj.magicHex,
+                bet.expireOnBlockNum,
+                bet.betDataHex,
+                bet.randObj.signR,
+                bet.randObj.signS,
+                0, // The affiliate ID should be recorded in contract already
+                {
+                    from: playerAddr,
+                    value: bet.value.eth
+                }
+            );
+            truffleAssert.eventEmitted(tx, "BetIsPlaced");
+        }
+    });
+
+    it("Reveal the jackpot winning bet.", async () => {
+        const banker = await Banker.deployed();
+
+        for (const bet of bets) {
+            const balanceBefore = await banker.getBankerBalance();
+            const jackpotBefore = await banker.getJackpotBalance();
+            const playerBalanceBefore = web3.utils.toBN(await web3.eth.getBalance(playerAddr));
+
+            const tx = await banker.revealBet(bet.randObj.randNum, { from: ownerAddr });
+
+            const balanceAfter = await banker.getBankerBalance();
+            const jackpotAfter = await banker.getJackpotBalance();
+            const playerBalanceAfter = web3.utils.toBN(await web3.eth.getBalance(playerAddr));
+
+            let winEth;
+
+            truffleAssert.eventEmitted(tx, "BetIsRevealed", ev => {
+                winEth = ev.winEth;
+                return true;
+            });
+
+            let jackpotAndAffiliateEth = web3.utils.toBN(0);
+            let jackpotEth = web3.utils.toBN(0); // If the player didn't win, then he/she should not earn the jackpot
+
+            assert.isTrue(balanceBefore.sub(winEth).eq(balanceAfter), "The calculation of banker balance is wrong!");
+
+            if (winEth.gt(web3.utils.toBN(0))) {
+                truffleAssert.eventEmitted(tx, "JackpotIsRevealed", ev => {
+                    return true;
+                });
+
+                assert.isTrue(jackpotAfter.eq(web3.utils.toBN(0)), "Jackpot should be zero after the revealing.");
+
+                const eth001 = eth1.div(web3.utils.toBN(100));
+                if (winEth.gt(eth001)) {
+                    jackpotAndAffiliateEth = eth1.div(web3.utils.toBN(1000)).mul(web3.utils.toBN(2));
+
+                    // Jackpot balance should be increased by 0.001 ETH
+                    jackpotEth = jackpotBefore.add(eth1.div(web3.utils.toBN(1000)));
+                }
+            }
+
+            assert.isTrue(
+                playerBalanceBefore
+                    .add(winEth)
+                    .sub(jackpotAndAffiliateEth)
+                    .add(jackpotEth)
+                    .eq(playerBalanceAfter),
+                "The calculation of the player balance is wrong!"
+            );
         }
     });
 });

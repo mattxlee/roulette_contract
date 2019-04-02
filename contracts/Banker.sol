@@ -63,6 +63,8 @@ contract Banker {
     // maxBetEth is the range for the amount of placed bet.
     uint256 public maxBetEth;
 
+    uint256 public jackpotProbability;
+
     // odds for roulette game
     mapping (uint256 => uint256) odds;
 
@@ -428,8 +430,8 @@ contract Banker {
             _plyAddr.transfer(_ethToTrans);
 
             // Jackpot winning?
-            uint256 _jackpotResult = _betHash % 1000;
-            if (_jackpotResult == 888) {
+            uint256 _jackpotResult = _betHash % jackpotProbability;
+            if (_jackpotResult == 0) {
                 // Jackpot winner is the player.
                 _plyAddr.transfer(_jackpotEth);
                 emit JackpotIsRevealed(gameID, _plyAddr, _jackpotEth);
@@ -470,6 +472,7 @@ contract Banker {
 
         gameID = 1;
         maxBetEth = eth1 / 10;
+        jackpotProbability = 1000;
 
         // Initialize odds.
         odds[1] = 35;
@@ -511,6 +514,15 @@ contract Banker {
     function setMaxBetEth(uint256 _numOfEth) public ownerOnly {
         require(_numOfEth <= eth1.mul(10) && _numOfEth >= 1e18 / 100, "The amount of max bet is out of range!");
         maxBetEth = _numOfEth;
+    }
+
+    /**
+     * @dev Setup the value of jackpot chance division by
+     * @param _probability The value
+     */
+    function setJackpotProbability(uint256 _probability) public ownerOnly {
+        require(_probability > 0, "The value of probability cannot be zero.");
+        jackpotProbability = _probability;
     }
 
     /**
