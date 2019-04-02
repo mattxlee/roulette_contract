@@ -718,7 +718,7 @@ contract Banker {
 
             // Ensure the player has enough amount of eth
             Player storage _ply = players[_plyID];
-            require(eth <= _ply.eth, "The amount to withdraw is out of range!");
+            require(_eth <= _ply.eth, "The amount to withdraw is out of range!");
             _ply.addr.transfer(_eth);
             _ply.eth = _ply.eth.sub(_eth);
             emit Withdraw(_ply.addr, _eth, _ply.eth);
