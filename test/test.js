@@ -487,7 +487,7 @@ contract("Banker", async accounts => {
 
             if (winEth.gt(web3.utils.toBN(0))) {
                 truffleAssert.eventEmitted(tx, "JackpotIsRevealed", ev => {
-                    return true;
+                    return ev.winnerAddr === playerAddr;
                 });
 
                 assert.isTrue(jackpotAfter.eq(web3.utils.toBN(0)), "Jackpot should be zero after the revealing.");
