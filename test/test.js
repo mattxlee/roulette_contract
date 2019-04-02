@@ -459,7 +459,7 @@ contract("Banker", async accounts => {
         }
     });
 
-    it("Reveal the jackpot winning bet.", async () => {
+    it("Reveal the jackpot winning bets.", async () => {
         const banker = await Banker.deployed();
 
         for (const bet of bets) {
