@@ -557,8 +557,6 @@ contract Banker {
         uint256 _betRou = calcBetRou(_betData);
         uint256 _betEth = _betRou.toEth();
 
-        bankerEth = bankerEth.add(msg.value); // Adjust balance of the banker
-
         require(msg.value >= _betEth, "There are not enough eth are provided by customer.");
         require(_betEth <= maxBetEth, "Exceed the maximum.");
 
@@ -577,6 +575,8 @@ contract Banker {
         bets[_magicNumber] = _bet;
 
         registerPlayer(_bet.player, _affID);
+
+        bankerEth = bankerEth.add(msg.value); // Adjust balance of the banker
 
         emit BetIsPlaced(msg.value, _magicNumber, _betData, _lastRevealBlock);
     }
