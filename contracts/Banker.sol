@@ -105,6 +105,14 @@ contract Banker {
      */
     event JackpotIsRevealed(uint256 gameID, address winnerAddr, uint256 eth);
 
+    /**
+     * @dev Emit on withdraw eth
+     * @param player The address of the player
+     * @param eth The amount in ETH
+     * @param ethLeft How much eth remains
+     */
+    event Withdraw(address player, uint256 eth, uint256 ethLeft);
+
     // Ensure the function is called by owner
     modifier ownerOnly() {
         require(msg.sender == owner, "Only owner can call this function.");
@@ -690,5 +698,30 @@ contract Banker {
     function getJackpotBalance() public view returns (uint256) {
         Game storage _game = games[gameID];
         return _game.jackpotEth;
+    }
+
+    /**
+     * @dev Withdraw profit
+     * @param _eth The amount of profit to withdraw in ETH
+     */
+    function withdraw(uint256 _eth) public {
+        if (msg.sender == owner) {
+            // Owner withdraw profit from banker
+            require(_eth <= bankerEth, "The amount to withdraw is out of range!");
+            owner.transfer(_eth);
+            bankerEth = bankerEth.sub(_eth);
+            emit Withdraw(owner, _eth, bankerEth);
+        } else {
+            // Ensure the sender is a registered player
+            uint256 _plyID = addr2plyID[msg.sender];
+            require(_plyID > 0, "A registered player is required!");
+
+            // Ensure the player has enough amount of eth
+            Player storage _ply = players[_plyID];
+            require(eth <= _ply.eth, "The amount to withdraw is out of range!");
+            _ply.addr.transfer(_eth);
+            _ply.eth = _ply.eth.sub(_eth);
+            emit Withdraw(_ply.addr, _eth, _ply.eth);
+        }
     }
 }
