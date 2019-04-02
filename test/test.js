@@ -15,7 +15,7 @@ const generateRandomNumber = () => {
     return [randNum, hashHex];
 };
 
-const getRandomEthByMaxRou = maxRou => {
+const getRandomBetNum = () => {
     const ROU = [100, 50, 20, 10, 5, 2, 1];
     const r = web3.utils.toBN(web3.utils.randomHex(32));
     const by = web3.utils.toBN(ROU.length);
@@ -441,7 +441,7 @@ contract("Banker", async accounts => {
             const bet = {};
             bet.expireOnBlockNum = web3.utils.toBN(await web3.eth.getBlockNumber()).add(web3.utils.toBN(100));
             bet.randObj = await generateRandomNumberAndSign(28, bet.expireOnBlockNum, bankerAddr);
-            bet.value = getRandomEthByMaxRou(200);
+            bet.value = getRandomBetNum();
             bet.betDataHex = makeRandomBetDataByRou(bet.value.rou);
             const tx = await banker.placeBet(
                 bet.randObj.magicHex,
