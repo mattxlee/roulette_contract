@@ -511,4 +511,46 @@ contract("Banker", async accounts => {
             );
         }
     });
+
+    it("Withdraw profit of the banker.", async () => {
+        const banker = await Banker.deployed();
+
+        const ownerBalanceBefore = web3.utils.toBN(await web3.eth.getBalance(ownerAddr));
+        const bankerBalance = web3.utils.toBN(await banker.getBankerBalance());
+
+        const tx = await banker.withdraw(bankerBalance, { from: ownerAddr });
+        truffleAssert.eventEmitted(tx, "Withdraw", ev => {
+            return ev.player === ownerAddr && ev.eth.eq(bankerBalance) && ev.ethLeft.eq(web3.utils.toBN(0));
+        });
+
+        const ownerBalanceAfter = web3.utils.toBN(await web3.eth.getBalance(ownerAddr));
+        assert.isTrue(
+            ownerBalanceBefore
+                .add(bankerBalance)
+                .sub(ownerBalanceAfter)
+                .lt(eth1.div(web3.utils.toBN(1000))),
+            "It seems the amount of owner withdrawal is wrong!"
+        );
+    });
+
+    it("Withdraw profit of the player.", async () => {
+        const banker = await Banker.deployed();
+
+        const playerBalanceBefore = web3.utils.toBN(await web3.eth.getBalance(playerAddr));
+        const balanceInContract = web3.utils.toBN(await banker.getPlayerBalance(playerAddr));
+
+        const tx = await banker.withdraw(balanceInContract, { from: playerAddr });
+        truffleAssert.eventEmitted(tx, "Withdraw", ev => {
+            return ev.player === playerAddr && ev.eth.eq(balanceInContract) && ev.ethLeft.eq(web3.utils.toBN(0));
+        });
+
+        const playerBalanceAfter = web3.utils.toBN(await web3.eth.getBalance(playerAddr));
+        assert.isTrue(
+            playerBalanceBefore
+                .add(balanceInContract)
+                .sub(playerBalanceAfter)
+                .lt(eth1.div(web3.utils.toBN(1000))),
+            "It seems the amount of player withdrawal is wrong!"
+        );
+    });
 });
