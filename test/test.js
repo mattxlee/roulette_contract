@@ -245,7 +245,7 @@ contract("Banker", async accounts => {
         let winEth;
         const balanceBefore = web3.utils.toBN(await banker.getBankerBalance());
         const jackpotBefore = web3.utils.toBN(await banker.getJackpotBalance());
-        const playerBalanceBefore = web3.utils.toBN(await web3.eth.getBalance(affAddr));
+        const playerBalanceBefore = web3.utils.toBN(await banker.getPlayerBalance(affAddr));
 
         const tx = await banker.revealBet(randObj.randNum);
         truffleAssert.eventEmitted(tx, "BetIsRevealed", ev => {
@@ -255,7 +255,7 @@ contract("Banker", async accounts => {
 
         const balanceAfter = await banker.getBankerBalance();
         const jackpotAfter = await banker.getJackpotBalance();
-        const playerBalanceAfter = web3.utils.toBN(await web3.eth.getBalance(affAddr));
+        const playerBalanceAfter = web3.utils.toBN(await banker.getPlayerBalance(affAddr));
 
         let jackpotIncoming = web3.utils.toBN(0);
 
@@ -332,12 +332,12 @@ contract("Banker", async accounts => {
     it("Refund eth to player.", async () => {
         const banker = await Banker.deployed();
 
-        const balance = web3.utils.toBN(await web3.eth.getBalance(affAddr));
+        const playerBalanceBefore = web3.utils.toBN(await banker.getPlayerBalance(affAddr));
 
         await truffleAssert.passes(banker.refundBet(randObj.magicHex));
 
-        const balanceAfter = web3.utils.toBN(await web3.eth.getBalance(affAddr));
-        const sub = balanceAfter.sub(balance);
+        const playerBalanceAfter = web3.utils.toBN(await banker.getPlayerBalance(affAddr));
+        const sub = playerBalanceAfter.sub(playerBalanceBefore);
         assert.isTrue(sub.eq(eth1), `The amount of return eth is wrong! sub=${sub.toString()}.`);
     });
 
@@ -465,13 +465,13 @@ contract("Banker", async accounts => {
         for (const bet of bets) {
             const balanceBefore = await banker.getBankerBalance();
             const jackpotBefore = await banker.getJackpotBalance();
-            const playerBalanceBefore = web3.utils.toBN(await web3.eth.getBalance(playerAddr));
+            const playerBalanceBefore = web3.utils.toBN(await banker.getPlayerBalance(playerAddr));
 
             const tx = await banker.revealBet(bet.randObj.randNum, { from: ownerAddr });
 
             const balanceAfter = await banker.getBankerBalance();
             const jackpotAfter = await banker.getJackpotBalance();
-            const playerBalanceAfter = web3.utils.toBN(await web3.eth.getBalance(playerAddr));
+            const playerBalanceAfter = web3.utils.toBN(await banker.getPlayerBalance(playerAddr));
 
             let winEth;
 

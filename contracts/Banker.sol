@@ -408,19 +408,17 @@ contract Banker {
     )
         private
     {
-        uint256 _winEth = _winRou.toEth();
-        uint256 _affID = 0;
+        uint256 _plyID = addr2plyID[_plyAddr];
+        Player storage _ply = players[_plyID];
+        uint256 _affID = _ply.affID;
         uint256 _affEth = 0;
+        uint256 _winEth = _winRou.toEth();
 
         // If the amount of winning award is larger than 0.01 eth, we should put 0.002 to jackpot
         // And the player has the change to win the jackpot
         if (_winEth > eth1.div(100)) {
             Game storage _game = games[gameID];
             uint256 _jackpotEth = _game.jackpotEth;
-
-            uint256 _plyID = addr2plyID[_plyAddr];
-            Player storage _ply = players[_plyID];
-            _affID = _ply.affID;
 
             if (_affID > 0) {
                 // Player has an affiliate, we need to split the amount. (0.001 to jackpot, 0.001 to the affilaite)
@@ -435,20 +433,20 @@ contract Banker {
             _jackpotEth = _game.jackpotEth;
 
             uint256 _ethToTrans = _winEth.sub(eth1.mul(2) / 1000);
-            _plyAddr.transfer(_ethToTrans);
+            _ply.eth = _ply.eth.add(_ethToTrans);
 
             // Jackpot winning?
             uint256 _jackpotResult = _betHash % jackpotProbability;
             if (_jackpotResult == 0) {
                 // Jackpot winner is the player.
-                _plyAddr.transfer(_jackpotEth);
+                _ply.eth = _ply.eth.add(_jackpotEth);
                 emit JackpotIsRevealed(gameID, _plyAddr, _jackpotEth);
 
                 // Start a new game here.
                 ++gameID;
             }
         } else if (_winEth > 0) {
-            _plyAddr.transfer(_winEth);
+            _ply.eth = _ply.eth.add(_winEth);
         }
         bankerEth = bankerEth.sub(_winEth);
         emit BetIsRevealed(_magicNumber, _dice, _winRou, _winEth, _affID, _affEth);
@@ -642,7 +640,10 @@ contract Banker {
         require(_plyAddr != address(0), "The bet slot is empty.");
         require(block.number > _bet.lastRevealBlock, "The bet is still in play.");
 
-        _plyAddr.transfer(_bet.betEth);
+        uint256 _plyID = addr2plyID[_plyAddr];
+        Player storage _ply = players[_plyID];
+        _ply.eth = _ply.eth.add(_bet.betEth);
+
         bankerEth = bankerEth.sub(_bet.betEth);
 
         // Clear the slot.
