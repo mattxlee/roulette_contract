@@ -29,14 +29,7 @@ contract Banker {
     // Player
     mapping (uint256 => Player) players;
     mapping (address => uint256) addr2plyID;
-    uint256 lastPlyID;
-
-    struct Game {
-        uint256 jackpotEth; // Each jackpot will drain all
-    }
-
-    mapping (uint256 => Game) games;
-    uint256 gameID;
+    uint256 public lastPlyID;
 
     // This struct will store bet related values
     struct Bet {
@@ -64,6 +57,7 @@ contract Banker {
     uint256 public maxBetEth;
 
     uint256 public jackpotProbability;
+    uint256 public jackpotEth;
 
     // odds for roulette game
     mapping (uint256 => uint256) odds;
@@ -99,11 +93,10 @@ contract Banker {
 
     /**
      * @dev Emit on current jackpot is revealed
-     * @param gameID Current identify number of jackpot
      * @param winnerAddr Address of the winner
      * @param eth The amount of the reward in eth
      */
-    event JackpotIsRevealed(uint256 gameID, address winnerAddr, uint256 eth);
+    event JackpotIsRevealed(address winnerAddr, uint256 eth);
 
     /**
      * @dev Emit on withdraw eth
@@ -410,45 +403,46 @@ contract Banker {
     {
         uint256 _plyID = addr2plyID[_plyAddr];
         Player storage _ply = players[_plyID];
+
         uint256 _affID = _ply.affID;
         uint256 _affEth = 0;
+
+        uint256 _jackpotEth = 0;
+        uint256 _plyEth = 0;
+
         uint256 _winEth = _winRou.toEth();
 
         // If the amount of winning award is larger than 0.01 eth, we should put 0.002 to jackpot
         // And the player has the change to win the jackpot
         if (_winEth > eth1.div(100)) {
-            Game storage _game = games[gameID];
-            uint256 _jackpotEth = _game.jackpotEth;
-
             if (_affID > 0) {
-                // Player has an affiliate, we need to split the amount. (0.001 to jackpot, 0.001 to the affilaite)
-                _game.jackpotEth = _jackpotEth.add(eth1 / 1000);
-                Player storage _aff = players[_affID];
+                _jackpotEth = eth1 / 1000;
                 _affEth = eth1 / 1000;
+
+                Player storage _aff = players[_affID];
                 _aff.eth = _aff.eth.add(_affEth);
             } else {
-                // No affiliate, put 0.002 eth to jackpot
-                _game.jackpotEth = _jackpotEth.add(eth1.mul(2) / 1000);
+                _jackpotEth = eth1.mul(2) / 1000;
             }
-            _jackpotEth = _game.jackpotEth;
-
-            uint256 _ethToTrans = _winEth.sub(eth1.mul(2) / 1000);
-            _ply.eth = _ply.eth.add(_ethToTrans);
+            _plyEth = _winEth.sub(_jackpotEth).sub(_affEth);
 
             // Jackpot winning?
             uint256 _jackpotResult = _betHash % jackpotProbability;
             if (_jackpotResult == 0) {
                 // Jackpot winner is the player.
-                _ply.eth = _ply.eth.add(_jackpotEth);
-                emit JackpotIsRevealed(gameID, _plyAddr, _jackpotEth);
-
-                // Start a new game here.
-                ++gameID;
+                _plyEth = _plyEth.add(jackpotEth);
+                jackpotEth = 0; // Reset jackpot to zero
+                emit JackpotIsRevealed(_plyAddr, _jackpotEth);
             }
-        } else if (_winEth > 0) {
-            _ply.eth = _ply.eth.add(_winEth);
+        } else {
+            _plyEth = _winEth;
         }
+
+        // Adjust balances
+        _ply.eth = _ply.eth.add(_plyEth);
+        jackpotEth = jackpotEth.add(_jackpotEth);
         bankerEth = bankerEth.sub(_winEth);
+
         emit BetIsRevealed(_magicNumber, _dice, _winRou, _winEth, _affID, _affEth);
     }
 
@@ -476,7 +470,6 @@ contract Banker {
         owner = msg.sender;
         banker = msg.sender;
 
-        gameID = 1;
         maxBetEth = eth1 / 10;
         jackpotProbability = 1000;
 
@@ -697,8 +690,7 @@ contract Banker {
      * @return Balance in eth
      */
     function getJackpotBalance() public view returns (uint256) {
-        Game storage _game = games[gameID];
-        return _game.jackpotEth;
+        return jackpotEth;
     }
 
     /**
