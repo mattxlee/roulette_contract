@@ -87,6 +87,16 @@ const sleep = msecs => {
     });
 };
 
+let totalEthOfBetting = web3.utils.toBN(0);
+
+const sumIt = n => {
+    if (typeof n === "number") {
+        totalEthOfBetting = totalEthOfBetting.add(web3.utils.toBN(n));
+    } else {
+        totalEthOfBetting = totalEthOfBetting.add(n);
+    }
+};
+
 contract("Banker", async accounts => {
     const ownerAddr = accounts[0];
     const bankerAddr = accounts[1];
@@ -164,6 +174,8 @@ contract("Banker", async accounts => {
     it("Deposit 10 eth to contract with player account.", async () => {
         const banker = await Banker.deployed();
         await truffleAssert.passes(banker.deposit({ from: playerAddr, value: eth1.mul(bigNum(10)) }));
+
+        sumIt(eth1.mul(bigNum(10)));
     });
 
     it("The eth amount of the contract should be 10 eth.", async () => {
@@ -195,6 +207,8 @@ contract("Banker", async accounts => {
             value: eth1
         });
         truffleAssert.eventEmitted(tx, "BetIsPlaced");
+
+        sumIt(eth1);
 
         // We retrieve affiliate ID here
         affID = parseInt(await banker.getPlayerID(affAddr));
@@ -313,6 +327,8 @@ contract("Banker", async accounts => {
                 value: eth1
             })
         );
+
+        sumIt(eth1);
     });
 
     it("Waiting for previous bet expires.", async () => {
@@ -368,6 +384,8 @@ contract("Banker", async accounts => {
                     }
                 )
             );
+
+            sumIt(eth1);
         }
     });
 
@@ -386,8 +404,6 @@ contract("Banker", async accounts => {
                 winEth = ev.winEth;
                 return true;
             });
-
-            await sleep(2000);
 
             const balanceAfter = web3.utils.toBN(await banker.getBankerBalance());
             const jackpotAfter = web3.utils.toBN(await banker.getJackpotBalance());
@@ -455,6 +471,9 @@ contract("Banker", async accounts => {
                     value: bet.value.eth
                 }
             );
+
+            sumIt(bet.value.eth);
+
             truffleAssert.eventEmitted(tx, "BetIsPlaced");
         }
     });
@@ -510,6 +529,27 @@ contract("Banker", async accounts => {
                 "The calculation of the player balance is wrong!"
             );
         }
+    });
+
+    it("Before withdrawal, check total eth.", async () => {
+        const banker = await Banker.deployed();
+
+        const bankerBalance = web3.utils.toBN(await banker.getBankerBalance());
+        const playerBalance = web3.utils.toBN(await banker.getPlayerBalance(playerAddr));
+        const affBalance = web3.utils.toBN(await banker.getPlayerBalance(affAddr));
+        const jackpotBalance = web3.utils.toBN(await banker.getJackpotBalance());
+
+        const allBettingEth = bankerBalance
+            .add(playerBalance)
+            .add(affBalance)
+            .add(jackpotBalance);
+        const contractBalance = web3.utils.toBN(await web3.eth.getBalance(Banker.address));
+
+        assert.isTrue(
+            allBettingEth.eq(totalEthOfBetting),
+            "All betting eth should equal to player+aff+jackpot+banker!"
+        );
+        assert.isTrue(allBettingEth.eq(contractBalance), "All betting eth should equal to contract balance!");
     });
 
     it("Withdraw profit of the banker.", async () => {
