@@ -22,8 +22,10 @@ contract Banker {
 
     struct Player {
         address payable addr; // The player address
-        uint256 affID; // Affiliate ID is recorded
         uint256 eth; // The balance of the player
+
+        uint256 affID; // Affiliate ID is recorded
+        uint256 affEarnEth; // Earned eth by becoming an affiliate
     }
 
     // Player
@@ -421,6 +423,7 @@ contract Banker {
 
                 Player storage _aff = players[_affID];
                 _aff.eth = _aff.eth.add(_affEth);
+                _aff.affEarnEth = _aff.affEarnEth.add(_affEth);
             } else {
                 _jackpotEth = eth1.mul(2) / 1000;
             }
@@ -670,6 +673,18 @@ contract Banker {
         require(_plyID > 0, "This address is not registered as a player!");
 
         return players[_plyID].affID;
+    }
+
+    /**
+     * @dev Agency fees earned since becoming an agent
+     * @param _plyAddr Address of the player
+     * @return Earned eth
+     */
+    function getPlayerAffEarn(address _plyAddr) public view returns (uint256) {
+        uint256 _plyID = addr2plyID[_plyAddr];
+        require(_plyID > 0, "This address is not registered as a player!");
+
+        return players[_plyID].affEarnEth;
     }
 
     /**
