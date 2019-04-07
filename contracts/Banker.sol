@@ -431,8 +431,8 @@ contract Banker {
             if (_jackpotResult == 0) {
                 // Jackpot winner is the player.
                 _plyEth = _plyEth.add(jackpotEth);
+                emit JackpotIsRevealed(_plyAddr, jackpotEth);
                 jackpotEth = 0; // Reset jackpot to zero
-                emit JackpotIsRevealed(_plyAddr, _jackpotEth);
             }
         } else {
             _plyEth = _winEth;
