@@ -558,9 +558,9 @@ contract("Banker", async accounts => {
         const ownerBalanceBefore = web3.utils.toBN(await web3.eth.getBalance(ownerAddr));
         const bankerBalance = web3.utils.toBN(await banker.getBankerBalance());
 
-        const tx = await banker.withdraw(bankerBalance, { from: ownerAddr });
-        truffleAssert.eventEmitted(tx, "Withdraw", ev => {
-            return ev.player === ownerAddr && ev.eth.eq(bankerBalance) && ev.ethLeft.eq(web3.utils.toBN(0));
+        const tx = await banker.withdrawOwner(bankerBalance, { from: ownerAddr });
+        truffleAssert.eventEmitted(tx, "WithdrawOwner", ev => {
+            return ev.eth.eq(bankerBalance) && ev.ethLeft.eq(web3.utils.toBN(0));
         });
 
         const ownerBalanceAfter = web3.utils.toBN(await web3.eth.getBalance(ownerAddr));

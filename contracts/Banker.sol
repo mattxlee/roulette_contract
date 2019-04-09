@@ -101,6 +101,13 @@ contract Banker {
     event JackpotIsRevealed(address winnerAddr, uint256 eth);
 
     /**
+     * @dev Emit on withdraw eth to owner
+     * @param eth The amount in ETH
+     * @param ethLeft How much eth remains
+     */
+    event WithdrawOwner(uint256 eth, uint256 ethLeft);
+
+    /**
      * @dev Emit on withdraw eth
      * @param player The address of the player
      * @param eth The amount in ETH
@@ -709,27 +716,31 @@ contract Banker {
     }
 
     /**
+     * @dev Withdraw banker eth to owner account
+     * @param _eth The amount of the withdrawal
+     */
+    function withdrawOwner(uint256 _eth) public ownerOnly {
+        // Owner withdraw profit from banker
+        require(_eth <= bankerEth, "The amount to withdraw is out of range!");
+        owner.transfer(_eth);
+        bankerEth = bankerEth.sub(_eth);
+        emit WithdrawOwner(_eth, bankerEth);
+    }
+
+    /**
      * @dev Withdraw profit
      * @param _eth The amount of profit to withdraw in ETH
      */
     function withdraw(uint256 _eth) public {
-        if (msg.sender == owner) {
-            // Owner withdraw profit from banker
-            require(_eth <= bankerEth, "The amount to withdraw is out of range!");
-            owner.transfer(_eth);
-            bankerEth = bankerEth.sub(_eth);
-            emit Withdraw(owner, _eth, bankerEth);
-        } else {
-            // Ensure the sender is a registered player
-            uint256 _plyID = addr2plyID[msg.sender];
-            require(_plyID > 0, "A registered player is required!");
+        // Ensure the sender is a registered player
+        uint256 _plyID = addr2plyID[msg.sender];
+        require(_plyID > 0, "A registered player is required!");
 
-            // Ensure the player has enough amount of eth
-            Player storage _ply = players[_plyID];
-            require(_eth <= _ply.eth, "The amount to withdraw is out of range!");
-            _ply.addr.transfer(_eth);
-            _ply.eth = _ply.eth.sub(_eth);
-            emit Withdraw(_ply.addr, _eth, _ply.eth);
-        }
+        // Ensure the player has enough amount of eth
+        Player storage _ply = players[_plyID];
+        require(_eth <= _ply.eth, "The amount to withdraw is out of range!");
+        _ply.addr.transfer(_eth);
+        _ply.eth = _ply.eth.sub(_eth);
+        emit Withdraw(_ply.addr, _eth, _ply.eth);
     }
 }
