@@ -90,8 +90,14 @@ contract Banker {
      * @param affID The ID number of the affiliate
      * @param affEth How much eth the affiliate earned
      */
-    event BetIsRevealed(uint256 magicNumber, uint256 dice, uint256 winAmount, uint256 winEth, uint256 affID,
-        uint256 affEth);
+    event BetIsRevealed(
+        uint256 magicNumber,
+        uint256 dice,
+        uint256 winAmount,
+        uint256 winEth,
+        uint256 affID,
+        uint256 affEth
+    );
 
     /**
      * @dev Emit on current jackpot is revealed
