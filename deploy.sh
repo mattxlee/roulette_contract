@@ -6,3 +6,5 @@ fi
 
 truffle deploy --network $1
 node retrieve-addr.js
+cp build/*.json ../frontend/src/
+cp build/*.json ../websrv/src/
