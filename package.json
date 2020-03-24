@@ -22,5 +22,6 @@
   "devDependencies": {
     "chai": "^4.2.0",
     "truffle-assertions": "^0.8.0"
-  }
+  },
+  "dependencies": {}
 }
