@@ -428,7 +428,7 @@ contract Banker {
         uint256 _winEth = _winRou.toEth();
 
         // If the amount of winning award is larger than 0.01 eth, we should put 0.002 to jackpot
-        // And the player has the change to win the jackpot
+        // And the player has the chance to win the jackpot
         if (_winEth > eth1.div(100)) {
             if (_affID > 0) {
                 _jackpotEth = eth1 / 1000;
