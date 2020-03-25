@@ -21,7 +21,8 @@
   "homepage": "https://github.com/mattxlee/erou_contract#readme",
   "devDependencies": {
     "chai": "^4.2.0",
-    "truffle-assertions": "^0.8.0"
+    "truffle-assertions": "^0.8.0",
+    "truffle-hdwallet-provider": "^1.0.17"
   },
   "dependencies": {}
 }
