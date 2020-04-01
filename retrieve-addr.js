@@ -11,7 +11,7 @@ if (networks) {
         addrJson.push(obj);
     });
     const addrStr = JSON.stringify(addrJson);
-    fs.writeFile("./build/Addresses.json", addrStr, err => {
+    fs.writeFile("./Addresses.json", addrStr, err => {
         if (err) {
             console.err(err);
             return;
