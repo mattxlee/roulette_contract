@@ -4,7 +4,7 @@
 // /  __/ /_ _  / / /  __/  /   / /_/ / /_/ /_  / /  __/ /_ / /_ /  __/
 // \___/\__/ /_/ /_/\___//_/    \____/\__,_/ /_/  \___/\__/ \__/ \___/
 //
-// This contract is deployed to https://etheroulette.win
+// This contract is deployed to https://rinkeby.coins2.win/roulette
 //
 
 pragma solidity ^0.5.0;
