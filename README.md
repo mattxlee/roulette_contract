@@ -1,5 +1,9 @@
 # Contract source files of Etheroulette Game
 
+The project was deployed to testnet Rinkeby. And you can test it by visiting the link: [Roulette](https://rinkeby.coins2.win/roulette/)
+
+The contract address on Rinkeby is `0xa51b7002058A78947193efa2970aAd3d92Ce1998`, the contract source was verified, you can inspect the details by visiting the link: [Etherscan contract info](https://rinkeby.etherscan.io/address/0xa51b7002058A78947193efa2970aAd3d92Ce1998).
+
 Here contains the test cases and contract source file. Truffle project is required for testing and deploying. Recommend
 to use ganache command line version to simulate the ethereum block chain.
 
