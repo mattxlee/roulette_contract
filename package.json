@@ -1,0 +1,28 @@
+{
+  "name": "erou_contract",
+  "version": "1.0.0",
+  "description": "",
+  "main": "test/test.js",
+  "directories": {
+    "test": "test"
+  },
+  "scripts": {
+    "test": "test/test.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mattxlee/erou_contract.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/mattxlee/erou_contract/issues"
+  },
+  "homepage": "https://github.com/mattxlee/erou_contract#readme",
+  "devDependencies": {
+    "chai": "^4.2.0",
+    "truffle-assertions": "^0.8.0",
+    "truffle-hdwallet-provider": "^1.0.17"
+  },
+  "dependencies": {}
+}
