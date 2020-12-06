@@ -728,8 +728,8 @@ contract Banker {
     function withdrawOwner(uint256 _eth) public ownerOnly {
         // Owner withdraw profit from banker
         require(_eth <= bankerEth, "The amount to withdraw is out of range!");
-        owner.transfer(_eth);
         bankerEth = bankerEth.sub(_eth);
+        owner.transfer(_eth);
         emit WithdrawOwner(_eth, bankerEth);
     }
 
@@ -745,8 +745,8 @@ contract Banker {
         // Ensure the player has enough amount of eth
         Player storage _ply = players[_plyID];
         require(_eth <= _ply.eth, "The amount to withdraw is out of range!");
-        _ply.addr.transfer(_eth);
         _ply.eth = _ply.eth.sub(_eth);
+        _ply.addr.transfer(_eth);
         emit Withdraw(_ply.addr, _eth, _ply.eth);
     }
 }
