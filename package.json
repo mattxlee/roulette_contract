@@ -22,8 +22,9 @@
   "devDependencies": {
     "chai": "^4.2.0",
     "eslint": "^7.15.0",
-    "truffle-assertions": "^0.8.0",
-    "truffle-hdwallet-provider": "^1.0.17"
+    "truffle-assertions": "^0.8.0"
   },
-  "dependencies": {}
+  "dependencies": {
+    "@truffle/hdwallet-provider": "^1.2.0"
+  }
 }
