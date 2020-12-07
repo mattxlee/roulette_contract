@@ -4,10 +4,11 @@
 // /  __/ /_ _  / / /  __/  /   / /_/ / /_/ /_  / /  __/ /_ / /_ /  __/
 // \___/\__/ /_/ /_/\___//_/    \____/\__,_/ /_/  \___/\__/ \__/ \___/
 //
-// This contract is deployed to https://etheroulette.win
+// This contract is deployed to https://etheroulette.com
 //
 
-pragma solidity ^0.5.0;
+// SPDX-License-Identifier: GPL-3.0-or-later
+pragma solidity ^0.7.5;
 
 import "./SafeMath.sol";
 import "./Rou.sol";
@@ -482,7 +483,7 @@ contract Banker {
     /**
      * @dev Constructor will initialize owner, maxBetEth and odds
      */
-    constructor() public {
+    constructor() {
         owner = msg.sender;
         banker = msg.sender;
 
