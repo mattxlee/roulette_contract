@@ -8,7 +8,7 @@
 //
 
 // SPDX-License-Identifier: GPL-3.0-or-later
-pragma solidity ^0.7.5;
+pragma solidity ^0.5.16;
 
 import "./SafeMath.sol";
 import "./Rou.sol";
@@ -483,7 +483,7 @@ contract Banker {
     /**
      * @dev Constructor will initialize owner, maxBetEth and odds
      */
-    constructor() {
+    constructor() public {
         owner = msg.sender;
         banker = msg.sender;
 
