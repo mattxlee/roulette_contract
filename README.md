@@ -3,6 +3,12 @@
 Here contains the test cases and contract source file. Truffle project is required for testing and deploying. Recommend
 to use ganache command line version to simulate the ethereum block chain.
 
+## Live
+
+The game now is deployed on **ROPSTEN** at address
+[0x2A6DFc26999c389Ae7fa22D5C9F3bD82c67DD8AE](https://ropsten.etherscan.io/address/0x2A6DFc26999c389Ae7fa22D5C9F3bD82c67DD8AE).
+You can visit [Etheroulette.com](https://etheroulette.com) to play the game.
+
 ## Requirements
 
 * NPM installed
